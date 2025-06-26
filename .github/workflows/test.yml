@@ -1,0 +1,40 @@
+
+name: Automated API tests using Postman CLI
+
+on:
+  push:
+    paths:
+      - '**/*.{yaml,yml,json}'  # Trigger on changes to Swagger/OpenAPI files
+jobs:
+  update-postman-spec:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Find Swagger/OpenAPI File
+        id: find-spec
+        run: |
+          # Find the first OpenAPI/Swagger file in the repository
+          SPEC_FILE=$(find . -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.json" \) | grep -E "swagger|openapi" | head -n 1)
+          if [ -z "$SPEC_FILE" ]; then
+            echo "No OpenAPI/Swagger specification found"
+            exit 1
+          fi
+          echo "spec_path=$SPEC_FILE" >> $GITHUB_OUTPUT
+
+      - name: Update Postman Specification
+        env:
+          POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
+          POSTMAN_WORKSPACE_ID: ${{ secrets.POSTMAN_WORKSPACE_ID }}
+          POSTMAN_SPEC_ID: ${{ secrets.POSTMAN_SPEC_ID }}
+        run: |
+          # Install Postman CLI
+          curl -o- "https://dl-cli.pstmn.io/install/linux64.sh" | sh
+
+          # Update the specification in Postman
+          postman api update \
+            --apiKey "$POSTMAN_API_KEY" \
+            --workspaceId "$POSTMAN_WORKSPACE_ID" \
+            --specId "$POSTMAN_SPEC_ID" \
+            --specPath "${{ steps.find-spec.outputs.spec_path }}"
