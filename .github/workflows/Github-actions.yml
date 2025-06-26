@@ -2,6 +2,7 @@
 name: Update My Spec
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - '**/*.{yaml,yml,json}'  # Trigger on changes to Swagger/OpenAPI files
