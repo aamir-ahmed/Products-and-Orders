@@ -12,18 +12,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-
-      - name: Find Swagger/OpenAPI File
-        id: find-spec
-        run: |
-          # Find the first OpenAPI/Swagger file in the repository
-          SPEC_FILE=$(find . -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.json" \) | grep -E "swagger|openapi" | head -n 1)
-          if [ -z "$SPEC_FILE" ]; then
-            echo "No OpenAPI/Swagger specification found"
-            exit 1
-          fi
-          echo "spec_path=$SPEC_FILE" >> $GITHUB_OUTPUT
-
       - name: Update Postman Specification
         env:
           POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
@@ -38,4 +26,4 @@ jobs:
             --apiKey "$POSTMAN_API_KEY" \
             --workspaceId "$POSTMAN_WORKSPACE_ID" \
             --specId "$POSTMAN_SPEC_ID" \
-            --specPath "${{ steps.find-spec.outputs.spec_path }}"
+            --specPath "Products-and-orders.yml"
