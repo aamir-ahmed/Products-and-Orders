@@ -20,7 +20,7 @@ jobs:
         run: |
           # Install Postman CLI
           curl -o- "https://dl-cli.pstmn.io/install/linux64.sh" | sh
-          SPEC_CONTENT=$(curl -s -H "Authorization: token ${GH_TOKEN}" \ https://raw.githubusercontent.com/my-org/api-specs/main/specs/Products-and-orders.yaml \| sed 's/"/\\"/g' | awk '{printf "%s\\n", $0}')
+          SPEC_CONTENT=$(curl -s -H "Authorization: token ${GH_TOKEN}" \ https://raw.githubusercontent.com/aamir-ahmed/Products-and-Orders/master/Products-and-orders.yaml \| sed 's/"/\\"/g' | awk '{printf "%s\\n", $0}')
 
           # Update the specification in Postman
           curl --location --request PATCH "https://api.getpostman.com/specs/7d1c97c7-cfdd-4994-b3f3-f25142da57b5/files/index.yaml" \--header "Content-Type: application/json" \--header "X-API-Key: ${POSTMAN_API_KEY}" \--data "{\"content\": \"$SPEC_CONTENT\"}"
