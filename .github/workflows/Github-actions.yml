@@ -24,7 +24,5 @@ jobs:
           cat debug-escaped.json
           SPEC_CONTENT=$(curl -s -H "Authorization: token ${GH_TOKEN}" \ https://raw.githubusercontent.com/aamir-ahmed/Products-and-Orders/master/Products-and-orders.yaml \ | jq -Rs .)
           # Update the specification in Postman
-          
-          
           curl --location --request PATCH "https://api.getpostman.com/specs/${POSTMAN_SPEC_ID}/files/index.yaml" \--header "Content-Type: application/json" \--header "X-API-Key: ${POSTMAN_API_KEY}" \--data "{\"content\": ${SPEC_CONTENT}}"
 
