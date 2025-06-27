@@ -17,10 +17,9 @@ jobs:
           POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
           POSTMAN_WORKSPACE_ID: ${{ secrets.POSTMAN_WORKSPACE_ID }}
           POSTMAN_SPEC_ID: ${{ secrets.POSTMAN_SPEC_ID }}
-          SPEC_CONTENT: $(curl -s https://github.com/aamir-ahmed/Products-and-Orders/blob/master/Products-and-orders.yaml)
         run: |
           # Install Postman CLI
           curl -o- "https://dl-cli.pstmn.io/install/linux64.sh" | sh
-
+          SPEC_CONTENT=$(cat Products-and-orders.yaml | sed 's/"/\\"/g' | awk '{printf "%s\\n", $0}')
           # Update the specification in Postman
           curl --location --request PATCH "https://api.getpostman.com/specs/7d1c97c7-cfdd-4994-b3f3-f25142da57b5/files/index.yaml" \--header "Content-Type: application/json" \--header "X-API-Key: ${POSTMAN_API_KEY}" \--data "{\"content\": \"$SPEC_CONTENT\"}"
