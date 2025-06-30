@@ -24,10 +24,18 @@ jobs:
           curl -o- "https://dl-cli.pstmn.io/install/linux64.sh" | sh
 
           # Fetch Swagger YAML from GitHub private repo and escape
-          SPEC_CONTENT=$(curl -s -H "Authorization: token ${GH_TOKEN}" https://raw.githubusercontent.com/aamir-ahmed/Products-and-Orders/master/Products-and-orders.yaml)
-          # Write payload and debug it
-          echo "{\"content\": ${SPEC_CONTENT}}" > payload.json
-          cat payload.json
+# Fetch YAML from private repo
+RAW_YAML=$(curl -s -H "Authorization: token ${GH_TOKEN}" https://raw.githubusercontent.com/aamir-ahmed/Products-and-Orders/master/Products-and-orders.yaml)
+
+# Check what was actually returned
+echo "Response preview:"echo "$RAW_YAML" | head
+
+# Escape for JSON
+SPEC_CONTENT=$(echo "$RAW_YAML" | jq -Rs .)
+
+# Write JSON payload
+echo "{\"content\": ${SPEC_CONTENT}}" > payload.json
+cat payload.json
 
           # Update the spec on Postman SpecHub
           curl --location --request PATCH "https://api.getpostman.com/specs/7d1c97c7-cfdd-4994-b3f3-f25142da57b5/files/index.yaml" \
