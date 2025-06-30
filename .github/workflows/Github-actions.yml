@@ -46,7 +46,7 @@ jobs:
 
           # Send PATCH request to update the spec
           echo "🚀 Uploading spec to Postman SpecHub..."
-          response=$(curl -s -w "\n%{http_code}" --location --request PATCH "https://api.getpostman.com/specs/7d1c97c7-cfdd-4994-b3f3-f25142da57b5/files/index.yaml" \
+          response=$(curl -s -w "\n%{http_code}" --location --request PATCH "https://api.getpostman.com/specs/"https://api.getpostman.com/specs/${POSTMAN_SPEC_ID}/files/index.yaml"/files/index.yaml" \
             --header "Content-Type: application/json" \
             --header "X-API-Key: ${POSTMAN_API_KEY}" \
             --data @payload.json)
