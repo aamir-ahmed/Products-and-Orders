@@ -1,38 +1,39 @@
-
 name: Update My Spec
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - '**/*.{yaml,yml,json}'  # Trigger on changes to Swagger/OpenAPI files
+      - '**/*.{yaml,yml,json}'
+
 jobs:
   update-postman-spec:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
       - name: Update Postman Specification
         env:
           POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
           POSTMAN_WORKSPACE_ID: ${{ secrets.POSTMAN_WORKSPACE_ID }}
           POSTMAN_SPEC_ID: ${{ secrets.POSTMAN_SPEC_ID }}
-run: |
-  # Install Postman CLI (if needed)
-  curl -o- "https://dl-cli.pstmn.io/install/linux64.sh" | sh
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          # Install Postman CLI (optional, remove if not using)
+          curl -o- "https://dl-cli.pstmn.io/install/linux64.sh" | sh
 
-  # Fetch Swagger YAML from private repo using GitHub PAT
-  SPEC_CONTENT=$(curl -s -H "Authorization: token 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" \
-    https://raw.githubusercontent.com/aamir-ahmed/Products-and-Orders/master/Products-and-orders.yaml \
-    | jq -Rs .)
+          # Fetch Swagger YAML from GitHub private repo and escape
+          SPEC_CONTENT=$(curl -s -H "Authorization: token ${GH_TOKEN}" \
+            https://raw.githubusercontent.com/aamir-ahmed/Products-and-Orders/master/Products-and-orders.yaml \
+            | jq -Rs .)
 
-  # Optional debug
-  echo "{\"content\": ${SPEC_CONTENT}}" > payload.json
-  cat payload.json
+          # Write payload and debug it
+          echo "{\"content\": ${SPEC_CONTENT}}" > payload.json
+          cat payload.json
 
-  # Update the specification in Postman
-  curl --location --request PATCH "https://api.getpostman.com/specs/7d1c97c7-cfdd-4994-b3f3-f25142da57b5/files/index.yaml" \
-    --header "Content-Type: application/json" \
-    --header "X-API-Key: ${POSTMAN_API_KEY}" \
-    --data @payload.json
-
+          # Update the spec on Postman SpecHub
+          curl --location --request PATCH "https://api.getpostman.com/specs/${POSTMAN_SPEC_ID}/files/index.yaml" \
+            --header "Content-Type: application/json" \
+            --header "X-API-Key: ${POSTMAN_API_KEY}" \
+            --data @payload.json
