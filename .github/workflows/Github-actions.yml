@@ -25,7 +25,7 @@ jobs:
 
           # Fetch Swagger YAML from GitHub private repo and escape
           SPEC_CONTENT=$(curl -s -H "Authorization: token ${GH_TOKEN}" \
-            https://raw.githubusercontent.com/aamir-ahmed/Products-and-Orders/master/Products-and-orders.yaml \
+            https://github.com/aamir-ahmed/Products-and-Orders/blob/master/Products-and-orders.yaml \
             | jq -Rs .)
 
           # Write payload and debug it
