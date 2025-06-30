@@ -27,9 +27,6 @@ jobs:
 # Fetch YAML from private repo
 RAW_YAML=$(curl -s -H "Authorization: token ${GH_TOKEN}" https://raw.githubusercontent.com/aamir-ahmed/Products-and-Orders/master/Products-and-orders.yaml)
 
-# Check what was actually returned
-echo "Response preview:"echo "$RAW_YAML" | head
-
 # Escape for JSON
 SPEC_CONTENT=$(echo "$RAW_YAML" | jq -Rs .)
 
