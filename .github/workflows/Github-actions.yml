@@ -50,7 +50,9 @@ jobs:
             --header "Content-Type: application/json" \
             --header "X-API-Key: ${POSTMAN_API_KEY}" \
             --data @payload.json)
-
+          collection_response=$(curl -s -w "\n%{http_code}" --location --request PUT "https://api.getpostman.com/collections/{{POSTMAN_COLLECTION_ID}}/synchronizations?specId={{POSTMAN_SPEC_ID}}" \
+              --header "Content-Type: application/json" \
+              --header "X-API-Key: ${POSTMAN_API_KEY}" \
           body=$(echo "$response" | head -n -1)
           status=$(echo "$response" | tail -n1)
 
