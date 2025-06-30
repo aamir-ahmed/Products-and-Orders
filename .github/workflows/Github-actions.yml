@@ -61,20 +61,17 @@ jobs:
             echo "$body"
             exit 1
           fi
-echo "🔄 Syncing Postman Collection with Spec..."
-
-    response=$(curl -s -w "\n%{http_code}" --location --request PUT \
-      "https://api.getpostman.com/collections/${POSTMAN_COLLECTION_ID}/synchronizations?specId=${POSTMAN_SPEC_ID}" \
-      --header "X-API-Key: ${POSTMAN_API_KEY}" \
-      --header "Content-Type: application/json")
-
-    body=$(echo "$response" | head -n -1)
-    status=$(echo "$response" | tail -n1)
-
-    if [[ "$status" == "200" || "$status" == "201" ]]; then
-      echo "✅ Sync triggered successfully"
-    else
-      echo "❌ Failed to sync (HTTP $status):"
-      echo "$body"
-      exit 1
-    fi
+          echo "🔄 Syncing Postman Collection with Spec..."
+          response=$(curl -s -w "\n%{http_code}" --location --request PUT \
+          "https://api.getpostman.com/collections/${POSTMAN_COLLECTION_ID}/synchronizations?specId=${POSTMAN_SPEC_ID}" \
+          --header "X-API-Key: ${POSTMAN_API_KEY}" \
+          --header "Content-Type: application/json")
+          body=$(echo "$response" | head -n -1)
+          status=$(echo "$response" | tail -n1)
+          if [[ "$status" == "200" || "$status" == "201" ]]; then
+          echo "✅ Sync triggered successfully"
+          else
+          echo "❌ Failed to sync (HTTP $status):"
+          echo "$body"
+          exit 1
+          fi
