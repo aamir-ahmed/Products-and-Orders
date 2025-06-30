@@ -1,41 +1,63 @@
-name: Update My Spec
+name: Update Postman SpecHub Spec
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # Allow manual trigger
   push:
     paths:
-      - '**/*.{yaml,yml,json}'
+      - '**/*.yaml'
+      - '**/*.yml'
+      - '**/*.json'
 
 jobs:
-  update-postman-spec:
+  update-spec:
     runs-on: ubuntu-latest
+    env:
+      SWAGGER_URL: https://raw.githubusercontent.com/aamir-ahmed/Products-and-Orders/master/Products-and-orders.yaml
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Update Postman Specification
+      - name: Install jq (for JSON escaping)
+        run: sudo apt-get install -y jq
+
+      - name: Fetch and Upload Swagger Spec to Postman
         env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}  # GitHub PAT with `repo` scope
           POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
-          POSTMAN_WORKSPACE_ID: ${{ secrets.POSTMAN_WORKSPACE_ID }}
           POSTMAN_SPEC_ID: ${{ secrets.POSTMAN_SPEC_ID }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          # Install Postman CLI (optional, remove if not using)
-          curl -o- "https://dl-cli.pstmn.io/install/linux64.sh" | sh
+          echo "📥 Fetching Swagger from: $SWAGGER_URL"
+          RAW_YAML=$(curl -s -H "Authorization: token ${GH_TOKEN}" "$SWAGGER_URL")
 
-          # Fetch Swagger YAML from GitHub private repo and escape
-# Fetch YAML from private repo
-RAW_YAML=$(curl -s -H "Authorization: token ${GH_TOKEN}" https://raw.githubusercontent.com/aamir-ahmed/Products-and-Orders/master/Products-and-orders.yaml)
+          # Check for 404 or GitHub error response
+          if echo "$RAW_YAML" | grep -q "404: Not Found"; then
+            echo "❌ ERROR: File not found or access denied. Exiting."
+            exit 1
+          fi
 
-# Escape for JSON
-SPEC_CONTENT=$(echo "$RAW_YAML" | jq -Rs .)
+          # Escape YAML for JSON payload
+          SPEC_CONTENT=$(echo "$RAW_YAML" | jq -Rs .)
 
-# Write JSON payload
-echo "{\"content\": ${SPEC_CONTENT}}" > payload.json
-cat payload.json
+          # Write escaped JSON payload
+          echo "{\"content\": ${SPEC_CONTENT}}" > payload.json
 
-          # Update the spec on Postman SpecHub
-          curl --location --request PATCH "https://api.getpostman.com/specs/7d1c97c7-cfdd-4994-b3f3-f25142da57b5/files/index.yaml" \
+          echo "📦 Payload preview:"
+          cat payload.json | head -n 20
+
+          # Send PATCH request to update the spec
+          echo "🚀 Uploading spec to Postman SpecHub..."
+          response=$(curl -s -w "\n%{http_code}" --location --request PATCH "https://api.getpostman.com/specs/${POSTMAN_SPEC_ID}/files/index.yaml" \
             --header "Content-Type: application/json" \
             --header "X-API-Key: ${POSTMAN_API_KEY}" \
-            --data @payload.json
+            --data @payload.json)
+
+          body=$(echo "$response" | head -n -1)
+          status=$(echo "$response" | tail -n1)
+
+          if [[ "$status" == "200" ]]; then
+            echo "✅ Spec updated successfully!"
+          else
+            echo "❌ Failed to update spec (HTTP $status):"
+            echo "$body"
+            exit 1
+          fi
