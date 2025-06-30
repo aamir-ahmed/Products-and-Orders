@@ -17,10 +17,22 @@ jobs:
           POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
           POSTMAN_WORKSPACE_ID: ${{ secrets.POSTMAN_WORKSPACE_ID }}
           POSTMAN_SPEC_ID: ${{ secrets.POSTMAN_SPEC_ID }}
-        run: |
-          # Install Postman CLI
-          curl -o- "https://dl-cli.pstmn.io/install/linux64.sh" | sh
-          SPEC_CONTENT=$(curl -s -H "Authorization: token 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" \https://raw.githubusercontent.com/aamir-ahmed/Products-and-Orders/master/Products-and-orders.yaml \ | jq -Rs .)
-          # Update the specification in Postman
-          curl --location --request PATCH "https://api.getpostman.com/specs/7d1c97c7-cfdd-4994-b3f3-f25142da57b5/files/index.yaml" \--header "Content-Type: application/json" \--header "X-API-Key: ${POSTMAN_API_KEY}" \--data "{\"content\": ${SPEC_CONTENT}}"
+run: |
+  # Install Postman CLI (if needed)
+  curl -o- "https://dl-cli.pstmn.io/install/linux64.sh" | sh
+
+  # Fetch Swagger YAML from private repo using GitHub PAT
+  SPEC_CONTENT=$(curl -s -H "Authorization: token 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" \
+    https://raw.githubusercontent.com/aamir-ahmed/Products-and-Orders/master/Products-and-orders.yaml \
+    | jq -Rs .)
+
+  # Optional debug
+  echo "{\"content\": ${SPEC_CONTENT}}" > payload.json
+  cat payload.json
+
+  # Update the specification in Postman
+  curl --location --request PATCH "https://api.getpostman.com/specs/7d1c97c7-cfdd-4994-b3f3-f25142da57b5/files/index.yaml" \
+    --header "Content-Type: application/json" \
+    --header "X-API-Key: ${POSTMAN_API_KEY}" \
+    --data @payload.json
 
