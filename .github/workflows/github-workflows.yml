@@ -1,40 +1,87 @@
-
-name: Automated API tests using Postman CLI
+name: Update Postman SpecHub Spec
 
 on:
+  workflow_dispatch:  # Allow manual trigger
   push:
     paths:
-      - '**/*.{yaml,yml,json}'  # Trigger on changes to Swagger/OpenAPI files
+      - '**/*.yaml'
+      - '**/*.yml'
+      - '**/*.json'
+
 jobs:
-  update-postman-spec:
+  update-spec:
     runs-on: ubuntu-latest
+    env:
+      SWAGGER_URL: https://raw.githubusercontent.com/aamir-ahmed/Products-and-Orders/master/Products-and-orders.yaml
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Find Swagger/OpenAPI File
-        id: find-spec
+      - name: Install jq (for JSON escaping)
+        run: sudo apt-get install -y jq
+
+      - name: Fetch and Upload Swagger Spec to Postman
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}  # GitHub PAT with `repo` scope
+          POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
+          POSTMAN_SPEC_ID: ${{ secrets.POSTMAN_SPEC_ID }}
+          POSTMAN_COLLECTION_ID: ${{ secrets.POSTMAN_COLLECTION_ID }}
         run: |
-          # Find the first OpenAPI/Swagger file in the repository
-          SPEC_FILE=$(find . -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.json" \) | grep -E "swagger|openapi" | head -n 1)
-          if [ -z "$SPEC_FILE" ]; then
-            echo "No OpenAPI/Swagger specification found"
+          echo "📥 Fetching Swagger from: $SWAGGER_URL"
+          RAW_YAML=$(curl -s -H "Authorization: token ${GH_TOKEN}" "$SWAGGER_URL")
+
+          # Check for 404 or GitHub error response
+          if echo "$RAW_YAML" | grep -q "404: Not Found"; then
+            echo "❌ ERROR: File not found or access denied. Exiting."
             exit 1
           fi
-          echo "spec_path=$SPEC_FILE" >> $GITHUB_OUTPUT
 
-      - name: Update Postman Specification
-        env:
-          POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
-          POSTMAN_WORKSPACE_ID: ${{ secrets.POSTMAN_WORKSPACE_ID }}
-          POSTMAN_SPEC_ID: ${{ secrets.POSTMAN_SPEC_ID }}
-        run: |
-          # Install Postman CLI
-          curl -o- "https://dl-cli.pstmn.io/install/linux64.sh" | sh
+          # Escape YAML for JSON payload
+          SPEC_CONTENT=$(echo "$RAW_YAML" | jq -Rs .)
 
-          # Update the specification in Postman
-          postman api update \
-            --apiKey "$POSTMAN_API_KEY" \
-            --workspaceId "$POSTMAN_WORKSPACE_ID" \
-            --specId "$POSTMAN_SPEC_ID" \
-            --specPath "${{ steps.find-spec.outputs.spec_path }}"
+          # Write escaped JSON payload
+          echo "{\"content\": ${SPEC_CONTENT}}" > payload.json
+
+          echo "📦 Payload preview:"
+          cat payload.json | head -n 20
+
+          # Send PATCH request to update the spec
+          echo "🚀 Uploading spec to Postman SpecHub..."
+          response=$(curl -s -w "\n%{http_code}" --location --request PATCH "https://api.getpostman.com/specs/${POSTMAN_SPEC_ID}/files/index.yaml" \
+            --header "Content-Type: application/json" \
+            --header "X-API-Key: ${POSTMAN_API_KEY}" \
+            --data @payload.json)
+          body=$(echo "$response" | head -n -1)
+          status=$(echo "$response" | tail -n1)
+
+          if [[ "$status" == "200" ]]; then
+            echo "✅ Spec updated successfully!"
+          else
+            echo "❌ Failed to update spec (HTTP $status):"
+            echo "$body"
+            exit 1
+          fi
+          echo "🔄 Syncing Postman Collection with Spec..."
+          response=$(curl -s -w "\n%{http_code}" --location --request PUT \
+          "https://api.getpostman.com/collections/${POSTMAN_COLLECTION_ID}/synchronizations?specId=${POSTMAN_SPEC_ID}" \
+          --header "X-API-Key: ${POSTMAN_API_KEY}" \
+          --header "Content-Type: application/json")
+          body=$(echo "$response" | head -n -1)
+          status=$(echo "$response" | tail -n1)
+          echo "Status Code: $status"
+          if [[ "$status" == "200" || "$status" == "201" || "$status" == "202" ]]; then
+          echo "✅ Sync triggered successfully"
+          elif [[ "$status" == "400" ]]; then
+          # Check if the detail message indicates already in sync
+          if echo "$body" | grep -q "Collection is already in sync"; then
+          echo "✅ Collection is already in sync"
+          else
+          echo "❌ Failed to sync (HTTP $status):"
+          echo "$body"
+          exit 3
+          fi
+          else
+          echo "❌ Failed to sync (HTTP $status):"
+          echo "$body"
+          exit 1
+          fi
