@@ -70,8 +70,8 @@ jobs:
           status=$(echo "$response" | tail -n1)
           if [[ "$status" == "200" || "$status" == "201" ]]; then
           echo "✅ Sync triggered successfully"
-          elseif ("$status" == "400") then
-          if (body.detail == "Collection is already in sync") then
+          elseif ("$status" == "400"); then
+          if (body.detail == "Collection is already in sync"); then
           echo "✅ Collection is already in sync"
           else
           echo "❌ Failed to sync (HTTP $status):"
