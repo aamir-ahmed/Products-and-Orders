@@ -11,25 +11,32 @@ jobs:
   update-spec:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout main and config branch
-        run: |
-          git clone --single-branch --branch config https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }} config-branch
-          git clone --single-branch --branch main https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }} main-branch
+    - name: "🔍 Checkout main repo"
+uses: actions/checkout@v3
+  with:
+    token: ${{ secrets.GH_TOKEN }}
 
-      - name: Install jq
-        run: sudo apt-get install -y jq
+- name: "Install dependencies"
+  run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: 🔍 Find Swagger File
-        id: find_swagger
-        run: |
-          SWAGGER_FILE=$(find main-branch -maxdepth 2 -type f -iname "*.yaml" | head -n 1)
-          if [[ -z "$SWAGGER_FILE" ]]; then
-            echo "❌ No Swagger file found."
-            exit 1
-          else
-            echo "✅ Found Swagger: $SWAGGER_FILE"
-            echo "SWAGGER_PATH=$SWAGGER_FILE" >> $GITHUB_ENV
-          fi
+
+- name: "🔍 Find and Load Swagger File"
+  id: find_swagger
+  run: |
+    # Search for .yaml or .yml files in the repo's root and one level deep
+    SWAGGER_FILE=$(find . -maxdepth 2 -type f \( -iname "*.yaml" -o -iname "*.yml" \) | head -n 1)
+
+    if [[ -z "$SWAGGER_FILE" ]]; then
+      echo "❌ No Swagger file found in the repository."
+      exit 1
+    else
+      echo "✅ Found Swagger File: $SWAGGER_FILE"
+      echo "SWAGGER_PATH=$SWAGGER_FILE" >> $GITHUB_ENV
+      
+      # Read and JSON-escape the file content
+      SWAGGER_CONTENT=$(jq -Rs . < "$SWAGGER_FILE")
+      echo "SWAGGER_CONTENT=$SWAGGER_CONTENT" >> $GITHUB_ENV
+    fi
 
       - name: 📦 Read existing POSTMAN IDs
         id: read_meta
