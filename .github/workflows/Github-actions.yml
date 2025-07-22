@@ -1,7 +1,7 @@
 name: Update Postman SpecHub Spec
 
 on:
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:
   push:
     paths:
       - '**/*.yaml'
@@ -11,120 +11,191 @@ jobs:
   update-spec:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout main and config branch
+        run: |
+          git clone --single-branch --branch config https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }} config-branch
+          git clone --single-branch --branch main https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }} main-branch
 
-      - name: Install jq (for JSON escaping)
+      - name: Install jq
         run: sudo apt-get install -y jq
+
       - name: 🔍 Find Swagger File
         id: find_swagger
         run: |
-          echo "🔍 Searching for .yaml file..."
-          SWAGGER_FILE=$(find . -maxdepth 2 -type f \( -iname "*.yaml" \) | head -n 1)
-
+          SWAGGER_FILE=$(find main-branch -maxdepth 2 -type f -iname "*.yaml" | head -n 1)
           if [[ -z "$SWAGGER_FILE" ]]; then
-            echo "❌ No Swagger file (.yaml) found."
+            echo "❌ No Swagger file found."
             exit 1
           else
-            echo "✅ Swagger file found: $SWAGGER_FILE"
+            echo "✅ Found Swagger: $SWAGGER_FILE"
             echo "SWAGGER_PATH=$SWAGGER_FILE" >> $GITHUB_ENV
           fi
-          - name: 📦 Read existing POSTMAN IDs
-          id: read_meta
-          run: |
+
+      - name: 📦 Read existing POSTMAN IDs
+        id: read_meta
+        run: |
           cd config-branch
           if [ -f config/spec-meta.json ]; then
-            export POSTMAN_SPEC_ID=$(jq -r '.POSTMAN_SPEC_ID' config/spec-meta.json)
-            export POSTMAN_COLLECTION_ID=$(jq -r '.POSTMAN_COLLECTION_ID' config/spec-meta.json)
+            POSTMAN_SPEC_ID=$(jq -r '.POSTMAN_SPEC_ID' config/spec-meta.json)
+            POSTMAN_COLLECTION_ID=$(jq -r '.POSTMAN_COLLECTION_ID' config/spec-meta.json)
             echo "POSTMAN_SPEC_ID=$POSTMAN_SPEC_ID" >> $GITHUB_ENV
             echo "POSTMAN_COLLECTION_ID=$POSTMAN_COLLECTION_ID" >> $GITHUB_ENV
-            echo "✅ Loaded spec-meta.json"
+            echo "✅ Loaded existing IDs"
           else
-            echo "⚠️ spec-meta.json not found. Creating empty one..."
+            echo "⚠️ No spec-meta.json, initializing"
             mkdir -p config
             echo '{"POSTMAN_SPEC_ID":"","POSTMAN_COLLECTION_ID":"","LAST_UPDATED":""}' > config/spec-meta.json
           fi
-          - name: 🧪 Example: Generate New IDs (Simulate API)
-          run: |
-          echo "NEW_SPEC_ID=spc-xyz123" >> $GITHUB_ENV
-          echo "NEW_COLLECTION_ID=col-abc789" >> $GITHUB_ENV
-          - name: 🔄 Update spec-meta.json
-          run: |
-          cd config-branch
-          bash ../scripts/update-spec-meta.sh \
-            "${{ env.NEW_SPEC_ID }}" \
-            "${{ env.NEW_COLLECTION_ID }}"
 
-      - name: 💾 Commit & Push to config branch
-        run: |
-          cd config-branch
-          git config --global user.email "actions@github.com"
-          git config --global user.name "GitHub Actions"
-          git add config/spec-meta.json
-          git commit -m "🔄 Update spec-meta.json with new IDs"
-          git push origin config
-      - name: Fetch and Upload Swagger Spec to Postman
+      - name: 🧪 Upload Spec and Generate Collection
+        if: env.POSTMAN_SPEC_ID == ''
+        id: upload_and_generate
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}  # GitHub PAT with `repo` scope
           POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
-          POSTMAN_SPEC_ID: ${{ env.NEW_SPEC_ID }}
-          POSTMAN_COLLECTION_ID: ${{ env.NEW_COLLECTION_ID }}
+          POSTMAN_WORKSPACE_ID: ${{ secrets.POSTMAN_WORKSPACE_ID }}
+          SWAGGER_PATH: ${{ env.SWAGGER_PATH }}
         run: |
-          echo "📥 Fetching Swagger from: $SWAGGER_FILE"
-          RAW_YAML=$(curl -s -H "Authorization: token ${GH_TOKEN}" "$SWAGGER_FILE")
+          RAW_YAML=$(cat "$SWAGGER_PATH")
+          SPEC_CONTENT=$(echo "$RAW_YAML" | jq -Rs .)
 
-          # Check for 404 or GitHub error response
-          if echo "$RAW_YAML" | grep -q "404: Not Found"; then
-            echo "❌ ERROR: File not found or access denied. Exiting."
+          CREATE_SPEC_PAYLOAD=$(jq -n \
+            --arg name "Products & Orders" \
+            --arg type "OPENAPI:3.0" \
+            --arg path "index.yaml" \
+            --argjson content "$SPEC_CONTENT" \
+            '{ name: $name, type: $type, files: [{ path: $path, content: $content }] }')
+
+          response=$(curl -s -w "\n%{http_code}" --location --request POST \
+            "https://api.getpostman.com/specs?workspaceId=${POSTMAN_WORKSPACE_ID}" \
+            --header "Content-Type: application/json" \
+            --header "X-API-Key: ${POSTMAN_API_KEY}" \
+            --data "$CREATE_SPEC_PAYLOAD")
+
+          body=$(echo "$response" | head -n -1)
+          status=$(echo "$response" | tail -n1)
+
+          if [[ "$status" == "200" || "$status" == "201" ]]; then
+            echo "✅ Spec created successfully!"
+            spec_id=$(echo "$body" | jq -r '.id')
+            echo "POSTMAN_SPEC_ID=$spec_id" >> $GITHUB_ENV
+            echo "$spec_id" > config-branch/config/.spec_id
+          else
+            echo "❌ Failed to create spec (HTTP $status):"
+            echo "$body"
             exit 1
           fi
 
-          # Escape YAML for JSON payload
+          sleep 5
+
+          GENERATE_COLLECTION_PAYLOAD=$(jq -n \
+            --arg name "Products & Orders" \
+            --arg parametersResolution "Example" \
+            '{ name: $name, options: { parametersResolution: $parametersResolution } }')
+
+          response=$(curl -s -w "\n%{http_code}" --location --request POST \
+            "https://api.getpostman.com/specs/${spec_id}/generations/collection" \
+            --header "Content-Type: application/json" \
+            --header "X-API-Key: ${POSTMAN_API_KEY}" \
+            --data "$GENERATE_COLLECTION_PAYLOAD")
+
+          body=$(echo "$response" | head -n -1)
+          status=$(echo "$response" | tail -n1)
+
+          if [[ "$status" == "200" || "$status" == "201" || "$status" == "202" ]]; then
+            echo "✅ Collection generated successfully!"
+            collection_id=$(echo "$body" | jq -r '.taskId')
+          else
+            echo "❌ Failed to generate collection (HTTP $status):"
+            echo "$body"
+            exit 1
+          fi
+
+          sleep 5
+
+          collection_response=$(curl -s -w "\n%{http_code}" --location --request GET \
+            "https://api.getpostman.com/specs/${spec_id}/generations/collection" \
+            --header "Content-Type: application/json" \
+            --header "X-API-Key: ${POSTMAN_API_KEY}")
+
+          collection_body=$(echo "$collection_response" | head -n -1)
+          collection_status=$(echo "$collection_response" | tail -n1)
+
+          if [[ "$collection_status" == "200" || "$collection_status" == "201" || "$collection_status" == "202" ]]; then
+            echo "✅ Collection information captured!"
+            collection_id=$(echo "$collection_body" | jq -r '.collections[0].id')
+            echo "POSTMAN_COLLECTION_ID=$collection_id" >> $GITHUB_ENV
+            echo "$collection_id" > config-branch/config/.collection_id
+          else
+            echo "❌ Failed to get collection (HTTP $collection_status):"
+            echo "$collection_body"
+            exit 1
+          fi
+
+      - name: 📤 Upload Swagger Spec to Postman
+        if: env.POSTMAN_SPEC_ID != ''
+        id: upload_spec
+        env:
+          POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
+          SWAGGER_PATH: ${{ env.SWAGGER_PATH }}
+          POSTMAN_SPEC_ID: ${{ env.POSTMAN_SPEC_ID }}
+        run: |
+          RAW_YAML=$(cat "$SWAGGER_PATH")
           SPEC_CONTENT=$(echo "$RAW_YAML" | jq -Rs .)
+          echo "{\"content\": ${SPEC_CONTENT}"} > payload.json
 
-          # Write escaped JSON payload
-          echo "{\"content\": ${SPEC_CONTENT}}" > payload.json
-
-          echo "📦 Payload preview:"
-          cat payload.json | head -n 20
-
-          # Send PATCH request to update the spec
-          echo "🚀 Uploading spec to Postman SpecHub..."
           response=$(curl -s -w "\n%{http_code}" --location --request PATCH "https://api.getpostman.com/specs/${POSTMAN_SPEC_ID}/files/index.yaml" \
             --header "Content-Type: application/json" \
             --header "X-API-Key: ${POSTMAN_API_KEY}" \
             --data @payload.json)
+
           body=$(echo "$response" | head -n -1)
           status=$(echo "$response" | tail -n1)
 
-          if [[ "$status" == "200" ]]; then
-            echo "✅ Spec updated successfully!"
-          else
-            echo "❌ Failed to update spec (HTTP $status):"
+          if [[ "$status" != "200" ]]; then
+            echo "❌ Failed to update spec: $status"
             echo "$body"
             exit 1
           fi
-          echo "🔄 Syncing Postman Collection with Spec..."
+          echo "✅ Spec updated"
+
+      - name: 🔄 Sync Postman Collection
+        if: env.POSTMAN_SPEC_ID != '' && env.POSTMAN_COLLECTION_ID != ''
+        id: sync_collection
+        env:
+          POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
+          POSTMAN_COLLECTION_ID: ${{ env.POSTMAN_COLLECTION_ID }}
+          POSTMAN_SPEC_ID: ${{ env.POSTMAN_SPEC_ID }}
+        run: |
           response=$(curl -s -w "\n%{http_code}" --location --request PUT \
-          "https://api.getpostman.com/collections/${POSTMAN_COLLECTION_ID}/synchronizations?specId=${POSTMAN_SPEC_ID}" \
-          --header "X-API-Key: ${POSTMAN_API_KEY}" \
-          --header "Content-Type: application/json")
+            "https://api.getpostman.com/collections/${POSTMAN_COLLECTION_ID}/synchronizations?specId=${POSTMAN_SPEC_ID}" \
+            --header "X-API-Key: ${POSTMAN_API_KEY}" \
+            --header "Content-Type: application/json")
+
           body=$(echo "$response" | head -n -1)
           status=$(echo "$response" | tail -n1)
-          echo "Status Code: $status"
+
           if [[ "$status" == "200" || "$status" == "201" || "$status" == "202" ]]; then
-          echo "✅ Sync triggered successfully"
-          elif [[ "$status" == "400" ]]; then
-          # Check if the detail message indicates already in sync
-          if echo "$body" | grep -q "Collection is already in sync"; then
-          echo "✅ Collection is already in sync"
+            echo "✅ Collection synced"
+          elif [[ "$status" == "400" && "$body" == *"already in sync"* ]]; then
+            echo "✅ Already in sync"
           else
-          echo "❌ Failed to sync (HTTP $status):"
-          echo "$body"
-          exit 3
+            echo "❌ Sync failed: $status"
+            echo "$body"
+            exit 1
           fi
-          else
-          echo "❌ Failed to sync (HTTP $status):"
-          echo "$body"
-          exit 1
-          fi
+
+      - name: 💾 Update & Commit spec-meta.json
+        run: |
+          cd config-branch
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          jq -n \
+            --arg specId "${{ env.POSTMAN_SPEC_ID }}" \
+            --arg collectionId "${{ env.POSTMAN_COLLECTION_ID }}" \
+            --arg updated "$TIMESTAMP" \
+            '{ POSTMAN_SPEC_ID: $specId, POSTMAN_COLLECTION_ID: $collectionId, LAST_UPDATED: $updated }' > config/spec-meta.json
+
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git add config/spec-meta.json
+          git commit -m "🔄 Update Postman IDs at $TIMESTAMP"
+          git push origin config
