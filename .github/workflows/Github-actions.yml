@@ -22,7 +22,7 @@ jobs:
       - name: "🔍 Find and Load Swagger File"
         id: find_swagger
         run: |
-          SWAGGER_FILE=$(find . -maxdepth 2 -type f \( -iname "*.yaml" -o -iname "*.yml" -o -iname "*.json" \) | head -n 1)
+          SWAGGER_FILE=$(find . -maxdepth 2 -type f \( -iname "*.yaml" -o -iname "*.json" \) | head -n 1)
           if [[ -z "$SWAGGER_FILE" ]]; then
             echo "❌ No Swagger file found in the repository."
             exit 1
