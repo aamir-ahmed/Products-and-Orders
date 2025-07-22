@@ -171,16 +171,17 @@ jobs:
 
       - name: 💾 Update & Commit spec-meta.json to main
         run: |
-          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          mkdir -p config
-          jq -n \
-            --arg specId "${{ env.POSTMAN_SPEC_ID }}" \
-            --arg collectionId "${{ env.POSTMAN_COLLECTION_ID }}" \
-            --arg updated "$TIMESTAMP" \
-            '{ POSTMAN_SPEC_ID: $specId, POSTMAN_COLLECTION_ID: $collectionId, LAST_UPDATED: $updated }' > config/spec-meta.json
-
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add config/spec-meta.json
-          git commit -m "🔄 Update Postman IDs at $TIMESTAMP"
-          git push origin master
+              git fetch origin master
+              git checkout master
+              TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+              mkdir -p config
+              jq -n \
+              --arg specId "${{ env.POSTMAN_SPEC_ID }}" \
+              --arg collectionId "${{ env.POSTMAN_COLLECTION_ID }}" \
+              --arg updated "$TIMESTAMP" \
+              '{ POSTMAN_SPEC_ID: $specId, POSTMAN_COLLECTION_ID: $collectionId, LAST_UPDATED: $updated }' > config/spec-meta.json
+              git config user.name "GitHub Actions"
+              git config user.email "actions@github.com"
+              git add config/spec-meta.json
+              git commit -m "🔄 Update Postman IDs at $TIMESTAMP"
+              git push https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/aamir-ahmed/Products-and-Orders.git master
