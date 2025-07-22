@@ -51,9 +51,10 @@ jobs:
           echo "✅ Loaded: SPEC_ID=$POSTMAN_SPEC_ID, COLLECTION_ID=$POSTMAN_COLLECTION_ID"
 
       - name: 🧾 Log POSTMAN_WORKSPACE_ID
-        run: echo "Using Postman Workspace ID: $POSTMAN_WORKSPACE_ID"
         env:
           POSTMAN_WORKSPACE_ID: ${{ secrets.POSTMAN_WORKSPACE_ID }}
+        run: |
+          echo "Using Postman Workspace ID: ${POSTMAN_WORKSPACE_ID}"
 
       - name: 🧪 Upload Spec and Generate Collection
         if: env.POSTMAN_SPEC_ID == ''
