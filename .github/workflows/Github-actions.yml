@@ -16,43 +16,45 @@ jobs:
         with:
           token: ${{ secrets.GH_TOKEN }}
 
-      - name: "Install dependencies"
+      - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y jq
 
-- name: 🔍 Find and Load Swagger File
-  id: find_swagger
-  run: |
-    SWAGGER_FILE=$(find . -maxdepth 2 -type f \( -iname "*.yaml" -o -iname "*.json" \) | head -n 1)
-    if [[ -z "$SWAGGER_FILE" ]]; then
-      echo "❌ No Swagger file found in the repository."
-      exit 1
-    fi
-    echo "✅ Found Swagger File: $SWAGGER_FILE"
-    echo "SWAGGER_PATH=$SWAGGER_FILE" >> $GITHUB_ENV
+      - name: 🔍 Find and Load Swagger File
+        id: find_swagger
+        run: |
+          SWAGGER_FILE=$(find . -maxdepth 2 -type f \( -iname "*.yaml" -o -iname "*.json" \) | head -n 1)
+          if [[ -z "$SWAGGER_FILE" ]]; then
+            echo "❌ No Swagger file found in the repository."
+            exit 1
+          fi
+          echo "✅ Found Swagger File: $SWAGGER_FILE"
+          echo "SWAGGER_PATH=$SWAGGER_FILE" >> $GITHUB_ENV
 
-- name: 📁 Prepare config workspace
-  run: |
-    if [ ! -f config/spec-meta.json ]; then
-      echo "⚠️ config/spec-meta.json not found. Creating it..."
-      mkdir -p config
-      echo '{"POSTMAN_SPEC_ID":"","POSTMAN_COLLECTION_ID":"","LAST_UPDATED":""}' > config/spec-meta.json
-    else
-      echo "✅ config/spec-meta.json already exists."
-    fi
+      - name: 📁 Prepare config workspace
+        run: |
+          if [ ! -f config/spec-meta.json ]; then
+            echo "⚠️ config/spec-meta.json not found. Creating it..."
+            mkdir -p config
+            echo '{"POSTMAN_SPEC_ID":"","POSTMAN_COLLECTION_ID":"","LAST_UPDATED":""}' > config/spec-meta.json
+          else
+            echo "✅ config/spec-meta.json already exists."
+          fi
 
       - name: 📤 Read existing POSTMAN IDs
         id: read_meta
         run: |
-          cd config-workspace
-          POSTMAN_SPEC_ID=$(jq -r '.POSTMAN_SPEC_ID' config/spec-meta.json)
-          POSTMAN_COLLECTION_ID=$(jq -r '.POSTMAN_COLLECTION_ID' config/spec-meta.json)
+          cd config
+          POSTMAN_SPEC_ID=$(jq -r '.POSTMAN_SPEC_ID' spec-meta.json)
+          POSTMAN_COLLECTION_ID=$(jq -r '.POSTMAN_COLLECTION_ID' spec-meta.json)
           echo "POSTMAN_SPEC_ID=$POSTMAN_SPEC_ID" >> $GITHUB_ENV
           echo "POSTMAN_COLLECTION_ID=$POSTMAN_COLLECTION_ID" >> $GITHUB_ENV
           echo "✅ Loaded: SPEC_ID=$POSTMAN_SPEC_ID, COLLECTION_ID=$POSTMAN_COLLECTION_ID"
-          - name: 🧾 Log POSTMAN_WORKSPACE_ID
-          run: echo "Using Postman Workspace ID: $POSTMAN_WORKSPACE_ID"
-          env:
+
+      - name: 🧾 Log POSTMAN_WORKSPACE_ID
+        run: echo "Using Postman Workspace ID: $POSTMAN_WORKSPACE_ID"
+        env:
           POSTMAN_WORKSPACE_ID: ${{ secrets.POSTMAN_WORKSPACE_ID }}
+
       - name: 🧪 Upload Spec and Generate Collection
         if: env.POSTMAN_SPEC_ID == ''
         id: upload_and_generate
@@ -128,9 +130,10 @@ jobs:
         run: |
           RAW_YAML=$(cat "$SWAGGER_PATH")
           SPEC_CONTENT=$(echo "$RAW_YAML" | jq -Rs .)
-          echo "{\"content\": ${SPEC_CONTENT}"} > payload.json
+          echo "{\"content\": ${SPEC_CONTENT}}" > payload.json
 
-          response=$(curl -s -w "\n%{http_code}" --location --request PATCH "https://api.getpostman.com/specs/${POSTMAN_SPEC_ID}/files/index.yaml" \
+          response=$(curl -s -w "\n%{http_code}" --location --request PATCH \
+            "https://api.getpostman.com/specs/${POSTMAN_SPEC_ID}/files/index.yaml" \
             --header "Content-Type: application/json" \
             --header "X-API-Key: ${POSTMAN_API_KEY}" \
             --data @payload.json)
@@ -166,16 +169,16 @@ jobs:
 
       - name: 💾 Update & Commit spec-meta.json to main
         run: |
-          cd config-workspace
+          cd config
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           jq -n \
             --arg specId "${{ env.POSTMAN_SPEC_ID }}" \
             --arg collectionId "${{ env.POSTMAN_COLLECTION_ID }}" \
             --arg updated "$TIMESTAMP" \
-            '{ POSTMAN_SPEC_ID: $specId, POSTMAN_COLLECTION_ID: $collectionId, LAST_UPDATED: $updated }' > config/spec-meta.json
+            '{ POSTMAN_SPEC_ID: $specId, POSTMAN_COLLECTION_ID: $collectionId, LAST_UPDATED: $updated }' > spec-meta.json
 
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add config/spec-meta.json
+          git add spec-meta.json
           git commit -m "🔄 Update Postman IDs at $TIMESTAMP"
           git push origin main
