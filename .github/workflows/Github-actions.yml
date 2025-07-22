@@ -29,14 +29,14 @@ jobs:
           fi
           echo "✅ Found Swagger File: $SWAGGER_FILE"
           echo "SWAGGER_PATH=$SWAGGER_FILE" >> $GITHUB_ENV
-
-      - name: 📁 Prepare config workspace
-        run: |
-          git clone https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }} config-workspace
-          cd config-workspace
+          - name: 📁 Prepare config workspace
+          run: |
           if [ ! -f config/spec-meta.json ]; then
-            mkdir -p config
-            echo '{"POSTMAN_SPEC_ID":"","POSTMAN_COLLECTION_ID":"","LAST_UPDATED":""}' > config/spec-meta.json
+          echo "⚠️ config/spec-meta.json not found. Creating it..."
+          mkdir -p config
+          echo '{"POSTMAN_SPEC_ID":"","POSTMAN_COLLECTION_ID":"","LAST_UPDATED":""}' > config/spec-meta.json
+          else
+          echo "✅ config/spec-meta.json already exists."
           fi
 
       - name: 📤 Read existing POSTMAN IDs
@@ -48,7 +48,10 @@ jobs:
           echo "POSTMAN_SPEC_ID=$POSTMAN_SPEC_ID" >> $GITHUB_ENV
           echo "POSTMAN_COLLECTION_ID=$POSTMAN_COLLECTION_ID" >> $GITHUB_ENV
           echo "✅ Loaded: SPEC_ID=$POSTMAN_SPEC_ID, COLLECTION_ID=$POSTMAN_COLLECTION_ID"
-
+          - name: 🧾 Log POSTMAN_WORKSPACE_ID
+          run: echo "Using Postman Workspace ID: $POSTMAN_WORKSPACE_ID"
+          env:
+          POSTMAN_WORKSPACE_ID: ${{ secrets.POSTMAN_WORKSPACE_ID }}
       - name: 🧪 Upload Spec and Generate Collection
         if: env.POSTMAN_SPEC_ID == ''
         id: upload_and_generate
@@ -59,7 +62,7 @@ jobs:
         run: |
           RAW_YAML=$(cat "$SWAGGER_PATH")
           SPEC_CONTENT=$(echo "$RAW_YAML" | jq -Rs .)
-
+          
           CREATE_SPEC_PAYLOAD=$(jq -n \
             --arg name "Products & Orders" \
             --arg type "OPENAPI:3.0" \
