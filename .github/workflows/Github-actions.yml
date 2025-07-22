@@ -67,8 +67,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}  # GitHub PAT with `repo` scope
           POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
-          POSTMAN_SPEC_ID: ${{ secrets.POSTMAN_SPEC_ID }}
-          POSTMAN_COLLECTION_ID: ${{ secrets.POSTMAN_COLLECTION_ID }}
+          POSTMAN_SPEC_ID: ${{ env.NEW_SPEC_ID }}
+          POSTMAN_COLLECTION_ID: ${{ env.NEW_COLLECTION_ID }}
         run: |
           echo "📥 Fetching Swagger from: $SWAGGER_FILE"
           RAW_YAML=$(curl -s -H "Authorization: token ${GH_TOKEN}" "$SWAGGER_FILE")
