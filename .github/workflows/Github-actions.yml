@@ -5,21 +5,30 @@ on:
   push:
     paths:
       - '**/*.yaml'
-      - '**/*.yml'
       - '**/*.json'
 
 jobs:
   update-spec:
     runs-on: ubuntu-latest
-    env:
-      SWAGGER_URL: https://raw.githubusercontent.com/aamir-ahmed/Products-and-Orders/master/Products-and-orders.yaml
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Install jq (for JSON escaping)
         run: sudo apt-get install -y jq
+      - name: 🔍 Find Swagger File
+        id: find_swagger
+        run: |
+          echo "🔍 Searching for .yaml file..."
+          SWAGGER_FILE=$(find . -maxdepth 2 -type f \( -iname "*.yaml" \) | head -n 1)
 
+          if [[ -z "$SWAGGER_FILE" ]]; then
+            echo "❌ No Swagger file (.yaml) found."
+            exit 1
+          else
+            echo "✅ Swagger file found: $SWAGGER_FILE"
+            echo "SWAGGER_PATH=$SWAGGER_FILE" >> $GITHUB_ENV
+          fi
       - name: Fetch and Upload Swagger Spec to Postman
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}  # GitHub PAT with `repo` scope
