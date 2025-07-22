@@ -29,6 +29,40 @@ jobs:
             echo "✅ Swagger file found: $SWAGGER_FILE"
             echo "SWAGGER_PATH=$SWAGGER_FILE" >> $GITHUB_ENV
           fi
+          - name: 📦 Read existing POSTMAN IDs
+          id: read_meta
+          run: |
+          cd config-branch
+          if [ -f config/spec-meta.json ]; then
+            export POSTMAN_SPEC_ID=$(jq -r '.POSTMAN_SPEC_ID' config/spec-meta.json)
+            export POSTMAN_COLLECTION_ID=$(jq -r '.POSTMAN_COLLECTION_ID' config/spec-meta.json)
+            echo "POSTMAN_SPEC_ID=$POSTMAN_SPEC_ID" >> $GITHUB_ENV
+            echo "POSTMAN_COLLECTION_ID=$POSTMAN_COLLECTION_ID" >> $GITHUB_ENV
+            echo "✅ Loaded spec-meta.json"
+          else
+            echo "⚠️ spec-meta.json not found. Creating empty one..."
+            mkdir -p config
+            echo '{"POSTMAN_SPEC_ID":"","POSTMAN_COLLECTION_ID":"","LAST_UPDATED":""}' > config/spec-meta.json
+          fi
+          - name: 🧪 Example: Generate New IDs (Simulate API)
+          run: |
+          echo "NEW_SPEC_ID=spc-xyz123" >> $GITHUB_ENV
+          echo "NEW_COLLECTION_ID=col-abc789" >> $GITHUB_ENV
+          - name: 🔄 Update spec-meta.json
+          run: |
+          cd config-branch
+          bash ../scripts/update-spec-meta.sh \
+            "${{ env.NEW_SPEC_ID }}" \
+            "${{ env.NEW_COLLECTION_ID }}"
+
+      - name: 💾 Commit & Push to config branch
+        run: |
+          cd config-branch
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+          git add config/spec-meta.json
+          git commit -m "🔄 Update spec-meta.json with new IDs"
+          git push origin config
       - name: Fetch and Upload Swagger Spec to Postman
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}  # GitHub PAT with `repo` scope
