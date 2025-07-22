@@ -19,25 +19,26 @@ jobs:
       - name: "Install dependencies"
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: "🔍 Find and Load Swagger File"
-        id: find_swagger
-        run: |
-          SWAGGER_FILE=$(find . -maxdepth 2 -type f \( -iname "*.yaml" -o -iname "*.json" \) | head -n 1)
-          if [[ -z "$SWAGGER_FILE" ]]; then
-            echo "❌ No Swagger file found in the repository."
-            exit 1
-          fi
-          echo "✅ Found Swagger File: $SWAGGER_FILE"
-          echo "SWAGGER_PATH=$SWAGGER_FILE" >> $GITHUB_ENV
-          - name: 📁 Prepare config workspace
-          run: |
-          if [ ! -f config/spec-meta.json ]; then
-          echo "⚠️ config/spec-meta.json not found. Creating it..."
-          mkdir -p config
-          echo '{"POSTMAN_SPEC_ID":"","POSTMAN_COLLECTION_ID":"","LAST_UPDATED":""}' > config/spec-meta.json
-          else
-          echo "✅ config/spec-meta.json already exists."
-          fi
+- name: 🔍 Find and Load Swagger File
+  id: find_swagger
+  run: |
+    SWAGGER_FILE=$(find . -maxdepth 2 -type f \( -iname "*.yaml" -o -iname "*.json" \) | head -n 1)
+    if [[ -z "$SWAGGER_FILE" ]]; then
+      echo "❌ No Swagger file found in the repository."
+      exit 1
+    fi
+    echo "✅ Found Swagger File: $SWAGGER_FILE"
+    echo "SWAGGER_PATH=$SWAGGER_FILE" >> $GITHUB_ENV
+
+- name: 📁 Prepare config workspace
+  run: |
+    if [ ! -f config/spec-meta.json ]; then
+      echo "⚠️ config/spec-meta.json not found. Creating it..."
+      mkdir -p config
+      echo '{"POSTMAN_SPEC_ID":"","POSTMAN_COLLECTION_ID":"","LAST_UPDATED":""}' > config/spec-meta.json
+    else
+      echo "✅ config/spec-meta.json already exists."
+    fi
 
       - name: 📤 Read existing POSTMAN IDs
         id: read_meta
