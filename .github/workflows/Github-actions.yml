@@ -65,7 +65,7 @@ jobs:
         run: |
           RAW_YAML=$(cat "$SWAGGER_PATH")
           SPEC_CONTENT=$(echo "$RAW_YAML" | jq -Rs .)
-          
+
           CREATE_SPEC_PAYLOAD=$(jq -n \
             --arg name "Products & Orders" \
             --arg type "OPENAPI:3.0" \
