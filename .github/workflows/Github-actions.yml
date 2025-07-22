@@ -181,6 +181,6 @@ jobs:
 
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add spec-meta.json
+          git add config/spec-meta.json
           git commit -m "🔄 Update Postman IDs at $TIMESTAMP"
           git push origin main
