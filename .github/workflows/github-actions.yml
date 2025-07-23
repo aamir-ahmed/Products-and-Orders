@@ -59,7 +59,9 @@ jobs:
           POSTMAN_WORKSPACE_ID: ${{ secrets.POSTMAN_WORKSPACE_ID }}
           SWAGGER_PATH: ${{ env.SWAGGER_PATH }}
         run: |
-          SPEC_CONTENT=$(yq -o=json -I=0 eval '.' "$SWAGGER_PATH")
+          yq -e -o=json -I=0 eval '.' "$SWAGGER_PATH" > spec.json || { echo "❌ Invalid OpenAPI file"; exit 1; }
+          SPEC_CONTENT=$(cat spec.json)
+
 
           CREATE_SPEC_PAYLOAD=$(jq -n             --arg name "Products & Orders"             --arg type "OPENAPI:3.0"             --arg path "index.yaml"             --argjson content "$SPEC_CONTENT"             '{ name: $name, type: $type, files: [{ path: $path, content: $content }] }')
 
@@ -102,7 +104,7 @@ jobs:
           POSTMAN_SPEC_ID: ${{ env.POSTMAN_SPEC_ID }}
         run: |
           SPEC_CONTENT=$(yq -o=json -I=0 eval '.' "$SWAGGER_PATH")
-          echo "{"content": ${SPEC_CONTENT}}" > payload.json
+          echo '{}' | yq -o=json '.content = env(SPEC_CONTENT)' > payload.json
 
           response=$(curl -s -w "\n%{http_code}" -X PATCH             "https://api.getpostman.com/specs/${POSTMAN_SPEC_ID}/files/index.yaml"             -H "Content-Type: application/json"             -H "X-API-Key: ${POSTMAN_API_KEY}"             --data @payload.json)
 
