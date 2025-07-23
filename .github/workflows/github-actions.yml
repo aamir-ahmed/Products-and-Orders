@@ -104,7 +104,7 @@ jobs:
           POSTMAN_SPEC_ID: ${{ env.POSTMAN_SPEC_ID }}
         run: |
           SPEC_CONTENT=$(yq -o=json -I=0 eval '.' "$SWAGGER_PATH")
-          echo '{}' | yq -o=json '.content = env(SPEC_CONTENT)' > payload.json
+          echo "{"content": ${SPEC_CONTENT}}" > payload.json
 
           response=$(curl -s -w "\n%{http_code}" -X PATCH             "https://api.getpostman.com/specs/${POSTMAN_SPEC_ID}/files/index.yaml"             -H "Content-Type: application/json"             -H "X-API-Key: ${POSTMAN_API_KEY}"             --data @payload.json)
 
