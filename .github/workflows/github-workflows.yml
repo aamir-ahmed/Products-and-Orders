@@ -37,8 +37,8 @@ jobs:
 
       - name: 🐛 Debug ENV
         run: |
-          echo "POSTMAN_SPEC_ID = ${{ env.POSTMAN_SPEC_ID }}"
-          echo "POSTMAN_COLLECTION_ID = ${{ env.POSTMAN_COLLECTION_ID }}"
+          echo "POSTMAN_SPEC_ID = $POSTMAN_SPEC_ID"
+          echo "POSTMAN_COLLECTION_ID = $POSTMAN_COLLECTION_ID"
 
       - name: 🛠️ Create or Update Spec and Collection
         run: |
@@ -46,7 +46,9 @@ jobs:
           CONTENT=$(jq -Rs . < "$SWAGGER_PATH")
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-          if [[ -z "${{ env.POSTMAN_SPEC_ID }}" || "${{ env.POSTMAN_SPEC_ID }}" == "null" ]]; then
+          echo "POSTMAN_SPEC_ID from env file: $POSTMAN_SPEC_ID"
+
+          if [ -z "$POSTMAN_SPEC_ID" ] || [ "$POSTMAN_SPEC_ID" = "null" ]; then
             echo "📄 Creating new spec..."
 
             jq -n \
@@ -79,7 +81,7 @@ jobs:
               exit 1
             fi
           else
-            echo "🔁 Updating existing spec: ${{ env.POSTMAN_SPEC_ID }}"
+            echo "🔁 Updating existing spec: $POSTMAN_SPEC_ID"
 
             jq -n \
               --argjson content "$CONTENT" \
@@ -88,12 +90,12 @@ jobs:
               }' > update-spec.json
 
             curl -s -X PUT \
-              "https://api.getpostman.com/specs/${{ env.POSTMAN_SPEC_ID }}" \
+              "https://api.getpostman.com/specs/$POSTMAN_SPEC_ID" \
               -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}" \
               -H "Content-Type: application/json" \
               --data @update-spec.json
 
-            echo "${{ env.POSTMAN_SPEC_ID }}" > .spec_id_tmp
+            echo "$POSTMAN_SPEC_ID" > .spec_id_tmp
           fi
 
       - name: ⚙️ Generate and Sync Collection
@@ -127,7 +129,7 @@ jobs:
           fi
 
       - name: 🖊️ Write spec-meta.json
-        if: env.POSTMAN_SPEC_ID == ''
+        if: ${{ env.POSTMAN_SPEC_ID == '' }}
         run: |
           spec_id=$(cat .spec_id_tmp)
           collection_id=$(cat .collection_id_tmp)
@@ -141,7 +143,7 @@ jobs:
             > config/spec-meta.json
 
       - name: 📅 Commit spec-meta.json update
-        if: env.POSTMAN_SPEC_ID == ''
+        if: ${{ env.POSTMAN_SPEC_ID == '' }}
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
