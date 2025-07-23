@@ -64,7 +64,7 @@ jobs:
             .name = "Products & Orders" |
             .type = "OPENAPI:3.0" |
             .files = [{"path":"index.yaml"}]
-            > create-spec-base.json
+            ' > create-spec-base.json
             yq -o=json ".files[0].content = load(\"openapi.json\")" create-spec-base.json > create-spec-payload.json
 
           response=$(curl -s -w "\n%{http_code}" -X POST \
