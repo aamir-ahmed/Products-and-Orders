@@ -11,6 +11,7 @@ jobs:
   update-postman-assets:
     runs-on: ubuntu-latest
     environment: production
+
     steps:
       - name: 🔍 Checkout repository
         uses: actions/checkout@v3
@@ -36,6 +37,40 @@ jobs:
           fi
           echo "POSTMAN_SPEC_ID=$POSTMAN_SPEC_ID" >> $GITHUB_ENV
           echo "POSTMAN_COLLECTION_ID=$POSTMAN_COLLECTION_ID" >> $GITHUB_ENV
+
+      - name: ♻️ Update existing Spec and regenerate Collection
+        if: env.POSTMAN_SPEC_ID != '' && env.POSTMAN_SPEC_ID != 'null'
+        run: |
+          SWAGGER_PATH="./Products-and-orders.yaml"
+          CONTENT=$(cat "$SWAGGER_PATH")
+
+          jq -n \
+            --arg content "$CONTENT" \
+            '{
+              files: [{ path: "index.yaml", content: $content }]
+            }' > update-spec-payload.json
+
+          echo "📤 Updating existing Spec..."
+          update_response=$(curl -s -o /dev/null -w "%{http_code}" -X PUT \
+            "https://api.getpostman.com/specs/${POSTMAN_SPEC_ID}" \
+            -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            --data @update-spec-payload.json)
+
+          if [[ "$update_response" =~ ^20[0-4]$ ]]; then
+            echo "✅ Spec updated successfully. Triggering collection regeneration..."
+
+            GEN_PAYLOAD='{"name":"Products & Orders","options":{"parametersResolution":"Example"}}'
+
+            curl -s -X POST \
+              "https://api.getpostman.com/specs/${POSTMAN_SPEC_ID}/generations/collection" \
+              -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}" \
+              -H "Content-Type: application/json" \
+              -d "$GEN_PAYLOAD"
+          else
+            echo "❌ Failed to update Spec (HTTP $update_response)"
+            exit 1
+          fi
 
       - name: 📈 Create Spec and Collection if IDs not present
         if: env.POSTMAN_SPEC_ID == '' || env.POSTMAN_SPEC_ID == 'null'
