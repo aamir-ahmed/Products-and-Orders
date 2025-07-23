@@ -41,7 +41,6 @@ jobs:
         if: env.POSTMAN_SPEC_ID == '' || env.POSTMAN_SPEC_ID == null
         run: |
           SWAGGER_PATH="./Products-and-orders.yaml"
-
           CONTENT=$(cat "$SWAGGER_PATH")
 
           jq -n \
@@ -63,15 +62,18 @@ jobs:
           body=$(echo "$response" | head -n -1)
           status=$(echo "$response" | tail -n1)
 
-          if [[ "$status" =~ ^20[01]$ ]]; then
-            spec_id=$(echo "$body" | jq -r '.spec.id')
-            echo "Spec created with ID: $spec_id"
-            echo "POSTMAN_SPEC_ID=$spec_id" >> $GITHUB_ENV
-          else
-            echo "❌ Failed to create spec (HTTP $status)"
-            echo "$body"
+          echo "📨 API response:"
+          echo "$body"
+
+          spec_id=$(echo "$body" | jq -r '.spec.id // .id')
+
+          if [[ -z "$spec_id" || "$spec_id" == "null" ]]; then
+            echo "❌ Failed to extract spec ID from response."
             exit 1
           fi
+
+          echo "✅ Spec created with ID: $spec_id"
+          echo "POSTMAN_SPEC_ID=$spec_id" >> $GITHUB_ENV
 
           echo "🔄 Waiting before generating collection..."
           sleep 5
@@ -92,6 +94,7 @@ jobs:
               "https://api.getpostman.com/specs/${spec_id}/generations/collection" \
               -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}")
             collection_id=$(echo "$collection_response" | jq -r '.collections[0].id')
+            echo "✅ Collection created with ID: $collection_id"
             echo "POSTMAN_COLLECTION_ID=$collection_id" >> $GITHUB_ENV
           else
             echo "❌ Collection generation failed (HTTP $gen_status)"
