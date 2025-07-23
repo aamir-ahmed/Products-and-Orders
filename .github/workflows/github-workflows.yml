@@ -47,7 +47,7 @@ jobs:
         run: echo "Using Postman Workspace ID: ${{ secrets.POSTMAN_WORKSPACE_ID }}"
 
       - name: 🧪 Create Spec and Generate Collection
-        if: env.POSTMAN_SPEC_ID == ''
+        if: ${{ env.POSTMAN_SPEC_ID == '' }}
         id: create_spec
         env:
           POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
@@ -64,7 +64,12 @@ jobs:
             '{
               name: $name,
               type: $type,
-              files: [{ path: "index.yaml", content: $content }]
+              files: [
+                {
+                  path: "index.yaml",
+                  content: $content
+                }
+              ]
             }' > create-spec-payload.json
 
           response=$(curl -s -w "\n%{http_code}" -X POST \
@@ -88,6 +93,7 @@ jobs:
           sleep 5
 
           GEN_PAYLOAD='{"name":"Products & Orders","options":{"parametersResolution":"Example"}}'
+
           gen_response=$(curl -s -w "\n%{http_code}" -X POST \
             "https://api.getpostman.com/specs/${spec_id}/generations/collection" \
             -H "Content-Type: application/json" \
@@ -108,14 +114,15 @@ jobs:
           fi
 
       - name: 📤 Upload to existing Spec
-        if: env.POSTMAN_SPEC_ID != ''
+        if: ${{ env.POSTMAN_SPEC_ID != '' }}
         env:
           POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
           SWAGGER_PATH: ${{ env.SWAGGER_PATH }}
           POSTMAN_SPEC_ID: ${{ env.POSTMAN_SPEC_ID }}
         run: |
-          SPEC_CONTENT=$(jq -Rs . < "$SWAGGER_PATH")
-          echo "{\"content\": $SPEC_CONTENT}" > payload.json
+          SWAGGER_CONTENT=$(<"$SWAGGER_PATH")
+          ESCAPED_CONTENT=$(printf '%s\n' "$SWAGGER_CONTENT" | jq -Rs .)
+          echo "{\"content\": $ESCAPED_CONTENT}" > payload.json
 
           response=$(curl -s -w "\n%{http_code}" -X PATCH \
             "https://api.getpostman.com/specs/${POSTMAN_SPEC_ID}/files/index.yaml" \
@@ -127,7 +134,7 @@ jobs:
           [[ "$status" == "200" ]] && echo "✅ Spec updated" || (echo "❌ Failed to update spec" && exit 1)
 
       - name: 🔄 Sync Collection
-        if: env.POSTMAN_SPEC_ID != '' && env.POSTMAN_COLLECTION_ID != ''
+        if: ${{ env.POSTMAN_SPEC_ID != '' && env.POSTMAN_COLLECTION_ID != '' }}
         env:
           POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
           POSTMAN_COLLECTION_ID: ${{ env.POSTMAN_COLLECTION_ID }}
@@ -148,10 +155,14 @@ jobs:
           git checkout master
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           jq -n \
-            --arg spec "$POSTMAN_SPEC_ID" \
-            --arg col "$POSTMAN_COLLECTION_ID" \
-            --arg time "$TIMESTAMP" \
-            '{POSTMAN_SPEC_ID: $spec, POSTMAN_COLLECTION_ID: $col, LAST_UPDATED: $time}' > config/spec-meta.json
+            --arg specId "$POSTMAN_SPEC_ID" \
+            --arg colId "$POSTMAN_COLLECTION_ID" \
+            --arg updated "$TIMESTAMP" \
+            '{
+              POSTMAN_SPEC_ID: $specId,
+              POSTMAN_COLLECTION_ID: $colId,
+              LAST_UPDATED: $updated
+            }' > config/spec-meta.json
           git add config/spec-meta.json
           git commit -m "🔄 Update Postman IDs at $TIMESTAMP"
           git push https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/aamir-ahmed/Products-and-Orders.git master
