@@ -40,8 +40,8 @@ jobs:
         run: |
           export POSTMAN_SPEC_ID=$(jq -r '.POSTMAN_SPEC_ID' config/spec-meta.json)
           export POSTMAN_COLLECTION_ID=$(jq -r '.POSTMAN_COLLECTION_ID' config/spec-meta.json)
-          echo "POSTMAN_SPEC_ID=${POSTMAN_SPEC_ID}" >> $GITHUB_ENV
-          echo "POSTMAN_COLLECTION_ID=${POSTMAN_COLLECTION_ID}" >> $GITHUB_ENV
+          echo "POSTMAN_SPEC_ID=$POSTMAN_SPEC_ID" >> $GITHUB_ENV
+          echo "POSTMAN_COLLECTION_ID=$POSTMAN_COLLECTION_ID" >> $GITHUB_ENV
 
       - name: 🧾 Log Postman Workspace ID
         run: echo 'Using Postman Workspace ID:${{ secrets.POSTMAN_WORKSPACE_ID }}'
@@ -57,19 +57,17 @@ jobs:
           SWAGGER_CONTENT=$(<"$SWAGGER_PATH")
           ESCAPED_CONTENT=$(printf '%s\n' "$SWAGGER_CONTENT" | jq -Rs .)
 
-          echo '{}' | jq \
+          jq -n \
             --arg name "Products & Orders" \
             --arg type "OPENAPI:3.0" \
             --arg content "$ESCAPED_CONTENT" \
             '{
               name: $name,
               type: $type,
-              files: [
-                {
-                  path: "index.yaml",
-                  content: $content
-                }
-              ]
+              files: [{
+                path: "index.yaml",
+                content: $content
+              }]
             }' > create-spec-payload.json
 
           response=$(curl -s -w "\n%{http_code}" -X POST \
@@ -90,33 +88,30 @@ jobs:
             exit 1
           fi
 
-          # ⏳ Wait for spec to be ready
-          MAX_ATTEMPTS=10
-          SLEEP_DURATION=5
-          attempt=1
-
-          while [[ $attempt -le $MAX_ATTEMPTS ]]; do
-            echo "🔁 Checking if spec is ready (attempt $attempt)..."
+          echo "⏳ Waiting for spec to become ready..."
+          for i in {1..10}; do
+            sleep 5
             ready_response=$(curl -s -X GET \
               "https://api.getpostman.com/specs/${spec_id}" \
               -H "X-API-Key: ${POSTMAN_API_KEY}")
-            status=$(echo "$ready_response" | jq -r '.spec.status')
-            echo "📌 Spec status: $status"
+
+            echo "🔁 Checking if spec is ready (attempt $i)..."
+            echo "🧪 Full spec status response:"
+            echo "$ready_response" | jq
+
+            status=$(echo "$ready_response" | jq -r '.spec.status // empty')
             if [[ "$status" == "available" ]]; then
+              echo "✅ Spec is ready!"
               break
             fi
-            sleep $SLEEP_DURATION
-            attempt=$((attempt + 1))
+            echo "📌 Spec status: ${status:-null}"
+            if [[ $i -eq 10 ]]; then
+              echo "❌ Spec not ready after waiting."
+              exit 1
+            fi
           done
 
-          if [[ "$status" != "available" ]]; then
-            echo "❌ Spec not ready after waiting."
-            exit 1
-          fi
-
-          # ✅ Generate collection
           GEN_PAYLOAD='{"name":"Products & Orders","options":{"parametersResolution":"Example"}}'
-
           gen_response=$(curl -s -w "\n%{http_code}" -X POST \
             "https://api.getpostman.com/specs/${spec_id}/generations/collection" \
             -H "Content-Type: application/json" \
@@ -137,13 +132,15 @@ jobs:
           fi
 
       - name: 📤 Upload to existing Spec
-        if: env.POSTMAN_SPEC_ID != '' 
+        if: env.POSTMAN_SPEC_ID != ''
         env:
           POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
           SWAGGER_PATH: ${{ env.SWAGGER_PATH }}
           POSTMAN_SPEC_ID: ${{ env.POSTMAN_SPEC_ID }}
         run: |
-          jq -Rs '{ content: . }' < "$SWAGGER_PATH" > payload.json
+          SWAGGER_CONTENT=$(<"$SWAGGER_PATH")
+          ESCAPED_CONTENT=$(printf '%s\n' "$SWAGGER_CONTENT" | jq -Rs .)
+          echo "{\"content\": $ESCAPED_CONTENT}" > payload.json
 
           response=$(curl -s -w "\n%{http_code}" -X PATCH \
             "https://api.getpostman.com/specs/${POSTMAN_SPEC_ID}/files/index.yaml" \
