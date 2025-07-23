@@ -52,7 +52,7 @@ jobs:
         run: echo 'Using Postman Workspace ID:${{ secrets.POSTMAN_WORKSPACE_ID }}'
 
       - name: 🧪 Create Spec and Generate Collection
-        if: env.POSTMAN_SPEC_ID == '' !! env.POSTMAN_SPEC_ID == 'null'
+        if: env.POSTMAN_SPEC_ID == '' || env.POSTMAN_SPEC_ID == 'null'
         id: create_spec
         env:
           POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
