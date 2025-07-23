@@ -49,8 +49,8 @@ EOF
       - name: 📤 Read existing Postman IDs
         id: read_meta
         run: |
-          export POSTMAN_SPEC_ID=$(yq eval '.POSTMAN_SPEC_ID' config/spec-meta.json)
-          export POSTMAN_COLLECTION_ID=$(yq eval '.POSTMAN_COLLECTION_ID' config/spec-meta.json)
+          POSTMAN_SPEC_ID=$(yq eval '.POSTMAN_SPEC_ID' config/spec-meta.json)
+          POSTMAN_COLLECTION_ID=$(yq eval '.POSTMAN_COLLECTION_ID' config/spec-meta.json)
           echo "POSTMAN_SPEC_ID=$POSTMAN_SPEC_ID" >> $GITHUB_ENV
           echo "POSTMAN_COLLECTION_ID=$POSTMAN_COLLECTION_ID" >> $GITHUB_ENV
 
@@ -153,23 +153,18 @@ EOF
           [[ "$status" =~ ^20[0-2]$ ]] && echo "✅ Collection synced" || (echo "❌ Failed to sync collection" && exit 1)
 
       - name: 💾 Commit spec-meta.json to main
-        env:
-          POSTMAN_SPEC_ID: ${{ env.POSTMAN_SPEC_ID }}
-          POSTMAN_COLLECTION_ID: ${{ env.POSTMAN_COLLECTION_ID }}
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git checkout master
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
           cat <<EOF > config/spec-meta.json
 {
-  "POSTMAN_SPEC_ID": "${POSTMAN_SPEC_ID}",
-  "POSTMAN_COLLECTION_ID": "${POSTMAN_COLLECTION_ID}",
+  "POSTMAN_SPEC_ID": "${{ env.POSTMAN_SPEC_ID }}",
+  "POSTMAN_COLLECTION_ID": "${{ env.POSTMAN_COLLECTION_ID }}",
   "LAST_UPDATED": "$TIMESTAMP"
 }
 EOF
-
           git add config/spec-meta.json
           git commit -m "🔄 Update Postman IDs at $TIMESTAMP"
           git push https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/aamir-ahmed/Products-and-Orders.git master
