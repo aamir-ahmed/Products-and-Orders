@@ -44,7 +44,7 @@ jobs:
           echo "POSTMAN_COLLECTION_ID=${POSTMAN_COLLECTION_ID}" >> $GITHUB_ENV
 
       - name: 🧾 Log Postman Workspace ID
-        run: echo 'Using Postman Workspace ID: ${{ secrets.POSTMAN_WORKSPACE_ID }}'
+        run: echo 'Using Postman Workspace ID:${{ secrets.POSTMAN_WORKSPACE_ID }}'
 
       - name: 🧪 Create Spec and Generate Collection
         if: env.POSTMAN_SPEC_ID == ''
