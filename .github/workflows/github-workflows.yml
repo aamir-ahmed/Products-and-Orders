@@ -71,7 +71,7 @@ jobs:
             "https://api.getpostman.com/specs?workspaceId=${POSTMAN_WORKSPACE_ID}" \
             -H "Content-Type: application/json" \
             -H "X-API-Key: ${POSTMAN_API_KEY}" \
-            --data @create-spec-payload.json
+            --data @create-spec-payload.json)
 
           body=$(echo "$response" | head -n -1)
           status=$(echo "$response" | tail -n1)
