@@ -59,17 +59,19 @@ jobs:
           POSTMAN_WORKSPACE_ID: ${{ secrets.POSTMAN_WORKSPACE_ID }}
           SWAGGER_PATH: ${{ env.SWAGGER_PATH }}
         run: |
-          SPEC_CONTENT=$(yq -o=json '.' "$SWAGGER_PATH")
-          CREATE_SPEC_PAYLOAD=$(echo '{}' | yq -o=json \
-            '.name = "Products & Orders" |
-             .type = "OPENAPI:3.0" |
-             .files = [{"path":"index.yaml","content":'"$SPEC_CONTENT"'}]')
+          yq -o=json '.' "$SWAGGER_PATH" > openapi.json
+          echo '{}' | yq -o=json 
+            .name = "Products & Orders" |
+            .type = "OPENAPI:3.0" |
+            .files = [{"path":"index.yaml"}]
+            > create-spec-base.json
+            yq -o=json ".files[0].content = load(\"openapi.json\")" create-spec-base.json > create-spec-payload.json
 
           response=$(curl -s -w "\n%{http_code}" -X POST \
             "https://api.getpostman.com/specs?workspaceId=${POSTMAN_WORKSPACE_ID}" \
             -H "Content-Type: application/json" \
             -H "X-API-Key: ${POSTMAN_API_KEY}" \
-            -d "$CREATE_SPEC_PAYLOAD")
+            --data @create-spec-payload.json
 
           body=$(echo "$response" | head -n -1)
           status=$(echo "$response" | tail -n1)
@@ -113,7 +115,7 @@ jobs:
           SWAGGER_PATH: ${{ env.SWAGGER_PATH }}
           POSTMAN_SPEC_ID: ${{ env.POSTMAN_SPEC_ID }}
         run: |
-          SPEC_CONTENT=$(yq -o=json '.' "$SWAGGER_PATH")
+          yq -o=json '.' "$SWAGGER_PATH" > openapi.json
           echo "{\"content\": $SPEC_CONTENT}" > payload.json
 
           response=$(curl -s -w "\n%{http_code}" -X PATCH \
