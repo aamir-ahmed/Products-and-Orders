@@ -18,10 +18,9 @@ jobs:
         with:
           token: ${{ secrets.GH_TOKEN }}
 
-      - name: Install yq
+      - name: Install jq
         run: |
-          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
-          sudo chmod +x /usr/bin/yq
+          sudo apt-get update && sudo apt-get install -y jq
 
       - name: 🔍 Find Swagger File
         id: find_swagger
@@ -43,13 +42,13 @@ jobs:
       - name: 📤 Read existing Postman IDs
         id: read_meta
         run: |
-          export POSTMAN_SPEC_ID=$(yq -r '.POSTMAN_SPEC_ID' config/spec-meta.json)
-          export POSTMAN_COLLECTION_ID=$(yq -r '.POSTMAN_COLLECTION_ID' config/spec-meta.json)
-          echo "POSTMAN_SPEC_ID=${POSTMAN_SPEC_ID//\"/}" >> $GITHUB_ENV
-          echo "POSTMAN_COLLECTION_ID=${POSTMAN_COLLECTION_ID//\"/}" >> $GITHUB_ENV
+          export POSTMAN_SPEC_ID=$(jq -r '.POSTMAN_SPEC_ID' config/spec-meta.json)
+          export POSTMAN_COLLECTION_ID=$(jq -r '.POSTMAN_COLLECTION_ID' config/spec-meta.json)
+          echo "POSTMAN_SPEC_ID=${POSTMAN_SPEC_ID}" >> $GITHUB_ENV
+          echo "POSTMAN_COLLECTION_ID=${POSTMAN_COLLECTION_ID}" >> $GITHUB_ENV
 
-      - name: 🧾 Log Postman Workspace ID
-        run: echo 'Using Postman Workspace ID:${{ secrets.POSTMAN_WORKSPACE_ID }}'
+      - name: 🗒️ Log Postman Workspace ID
+        run: echo 'Using Postman Workspace ID: ${{ secrets.POSTMAN_WORKSPACE_ID }}'
 
       - name: 🧪 Create Spec and Generate Collection
         if: env.POSTMAN_SPEC_ID == ''
@@ -59,13 +58,23 @@ jobs:
           POSTMAN_WORKSPACE_ID: ${{ secrets.POSTMAN_WORKSPACE_ID }}
           SWAGGER_PATH: ${{ env.SWAGGER_PATH }}
         run: |
-          yq -o=json '.' "$SWAGGER_PATH" > openapi.json
-          echo '{}' | yq -o=json ' 
-            .name = "Products & Orders" |
-            .type = "OPENAPI:3.0" |
-            .files = [{"path":"index.yaml"}]
-            ' > create-spec-base.json
-            yq -o=json ".files[0].content = load(\"openapi.json\")" create-spec-base.json > create-spec-payload.json
+          SWAGGER_CONTENT=$(<"$SWAGGER_PATH")
+          ESCAPED_CONTENT=$(printf '%s\n' "$SWAGGER_CONTENT" | jq -Rs .)
+
+          jq -n \
+            --arg name "Products & Orders" \
+            --arg type "OPENAPI:3.0" \
+            --arg content "$ESCAPED_CONTENT" \
+            '{
+              name: $name,
+              type: $type,
+              files: [
+                {
+                  path: "index.yaml",
+                  content: $content
+                }
+              ]
+            }' > create-spec-payload.json
 
           response=$(curl -s -w "\n%{http_code}" -X POST \
             "https://api.getpostman.com/specs?workspaceId=${POSTMAN_WORKSPACE_ID}" \
@@ -77,7 +86,7 @@ jobs:
           status=$(echo "$response" | tail -n1)
 
           if [[ "$status" =~ ^20[01]$ ]]; then
-            spec_id=$(echo "$body" | yq -r '.id')
+            spec_id=$(echo "$body" | jq -r '.spec.id')
             echo "POSTMAN_SPEC_ID=$spec_id" >> $GITHUB_ENV
           else
             echo "❌ Failed to create spec (HTTP $status)"
@@ -101,7 +110,7 @@ jobs:
             collection_response=$(curl -s -X GET \
               "https://api.getpostman.com/specs/${spec_id}/generations/collection" \
               -H "X-API-Key: ${POSTMAN_API_KEY}")
-            collection_id=$(echo "$collection_response" | yq -r '.collections[0].id')
+            collection_id=$(echo "$collection_response" | jq -r '.collections[0].id')
             echo "POSTMAN_COLLECTION_ID=$collection_id" >> $GITHUB_ENV
           else
             echo "❌ Collection generation failed (HTTP $gen_status)"
@@ -109,14 +118,15 @@ jobs:
           fi
 
       - name: 📤 Upload to existing Spec
-        if: env.POSTMAN_SPEC_ID != '' 
+        if: env.POSTMAN_SPEC_ID != ''
         env:
           POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
           SWAGGER_PATH: ${{ env.SWAGGER_PATH }}
           POSTMAN_SPEC_ID: ${{ env.POSTMAN_SPEC_ID }}
         run: |
-          yq -o=json '.' "$SWAGGER_PATH" > openapi.json
-          echo "{\"content\": $SPEC_CONTENT}" > payload.json
+          SWAGGER_CONTENT=$(<"$SWAGGER_PATH")
+          ESCAPED_CONTENT=$(printf '%s\n' "$SWAGGER_CONTENT" | jq -Rs .)
+          echo "{\"content\": $ESCAPED_CONTENT}" > payload.json
 
           response=$(curl -s -w "\n%{http_code}" -X PATCH \
             "https://api.getpostman.com/specs/${POSTMAN_SPEC_ID}/files/index.yaml" \
@@ -148,11 +158,8 @@ jobs:
           git config user.email "actions@github.com"
           git checkout master
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          echo "{" > config/spec-meta.json
-          echo "  \"POSTMAN_SPEC_ID\": \"${POSTMAN_SPEC_ID}\"," >> config/spec-meta.json
-          echo "  \"POSTMAN_COLLECTION_ID\": \"${POSTMAN_COLLECTION_ID}\"," >> config/spec-meta.json
-          echo "  \"LAST_UPDATED\": \"$TIMESTAMP\"" >> config/spec-meta.json
-          echo "}" >> config/spec-meta.json
+          jq -n --arg sid "$POSTMAN_SPEC_ID" --arg cid "$POSTMAN_COLLECTION_ID" --arg ts "$TIMESTAMP" \
+            '{POSTMAN_SPEC_ID: $sid, POSTMAN_COLLECTION_ID: $cid, LAST_UPDATED: $ts}' > config/spec-meta.json
           git add config/spec-meta.json
           git commit -m "🔄 Update Postman IDs at $TIMESTAMP"
           git push https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/aamir-ahmed/Products-and-Orders.git master
