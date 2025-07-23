@@ -27,14 +27,13 @@ jobs:
         id: read_meta
         run: |
           if [ -f config/spec-meta.json ]; then
-            POSTMAN_SPEC_ID=$(jq -r '.POSTMAN_SPEC_ID' config/spec-meta.json)
-            POSTMAN_COLLECTION_ID=$(jq -r '.POSTMAN_COLLECTION_ID' config/spec-meta.json)
+            echo "Reading existing Postman IDs"
+            echo "POSTMAN_SPEC_ID=$(jq -r '.POSTMAN_SPEC_ID' config/spec-meta.json)" >> $GITHUB_ENV
+            echo "POSTMAN_COLLECTION_ID=$(jq -r '.POSTMAN_COLLECTION_ID' config/spec-meta.json)" >> $GITHUB_ENV
           else
-            POSTMAN_SPEC_ID=""
-            POSTMAN_COLLECTION_ID=""
+            echo "POSTMAN_SPEC_ID=" >> $GITHUB_ENV
+            echo "POSTMAN_COLLECTION_ID=" >> $GITHUB_ENV
           fi
-          echo "POSTMAN_SPEC_ID=$POSTMAN_SPEC_ID" >> $GITHUB_ENV
-          echo "POSTMAN_COLLECTION_ID=$POSTMAN_COLLECTION_ID" >> $GITHUB_ENV
 
       - name: 🐛 Debug ENV
         run: |
@@ -47,7 +46,7 @@ jobs:
           CONTENT=$(jq -Rs . < "$SWAGGER_PATH")
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-          if [[ -z "${POSTMAN_SPEC_ID}" || "${POSTMAN_SPEC_ID}" == "null" ]]; then
+          if [[ -z "${{ env.POSTMAN_SPEC_ID }}" || "${{ env.POSTMAN_SPEC_ID }}" == "null" ]]; then
             echo "📄 Creating new spec..."
 
             jq -n \
@@ -68,20 +67,19 @@ jobs:
 
             body=$(echo "$response" | head -n -1)
             status=$(echo "$response" | tail -n1)
-            echo "📦 Spec creation response:"
             echo "$body" | jq .
 
             if [[ "$status" =~ ^20[01]$ ]]; then
               spec_id=$(echo "$body" | jq -r '.spec.id')
               echo "✅ Spec created: $spec_id"
-              echo "POSTMAN_SPEC_ID=$spec_id" >> $GITHUB_ENV
               echo "$spec_id" > .spec_id_tmp
+              echo "POSTMAN_SPEC_ID=$spec_id" >> $GITHUB_ENV
             else
               echo "❌ Failed to create spec (HTTP $status)"
               exit 1
             fi
           else
-            echo "🔁 Updating existing spec: $POSTMAN_SPEC_ID"
+            echo "🔁 Updating existing spec: ${{ env.POSTMAN_SPEC_ID }}"
 
             jq -n \
               --argjson content "$CONTENT" \
@@ -90,12 +88,12 @@ jobs:
               }' > update-spec.json
 
             curl -s -X PUT \
-              "https://api.getpostman.com/specs/${POSTMAN_SPEC_ID}" \
+              "https://api.getpostman.com/specs/${{ env.POSTMAN_SPEC_ID }}" \
               -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}" \
               -H "Content-Type: application/json" \
               --data @update-spec.json
 
-            echo "$POSTMAN_SPEC_ID" > .spec_id_tmp
+            echo "${{ env.POSTMAN_SPEC_ID }}" > .spec_id_tmp
           fi
 
       - name: ⚙️ Generate and Sync Collection
@@ -121,15 +119,15 @@ jobs:
               -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}")
             collection_id=$(echo "$collection_response" | jq -r '.collections[0].id')
             echo "✅ Collection ID: $collection_id"
-            echo "POSTMAN_COLLECTION_ID=$collection_id" >> $GITHUB_ENV
             echo "$collection_id" > .collection_id_tmp
+            echo "POSTMAN_COLLECTION_ID=$collection_id" >> $GITHUB_ENV
           else
             echo "❌ Collection generation failed (HTTP $gen_status)"
             exit 1
           fi
 
       - name: 🖊️ Write spec-meta.json
-        if: steps.read_meta.outputs.POSTMAN_SPEC_ID == ''
+        if: env.POSTMAN_SPEC_ID == ''
         run: |
           spec_id=$(cat .spec_id_tmp)
           collection_id=$(cat .collection_id_tmp)
@@ -143,7 +141,7 @@ jobs:
             > config/spec-meta.json
 
       - name: 📅 Commit spec-meta.json update
-        if: steps.read_meta.outputs.POSTMAN_SPEC_ID == ''
+        if: env.POSTMAN_SPEC_ID == ''
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
