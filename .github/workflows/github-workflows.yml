@@ -43,10 +43,10 @@ jobs:
       - name: 📤 Read existing Postman IDs
         id: read_meta
         run: |
-          export POSTMAN_SPEC_ID=$(yq '.POSTMAN_SPEC_ID' config/spec-meta.json)
-          export POSTMAN_COLLECTION_ID=$(yq '.POSTMAN_COLLECTION_ID' config/spec-meta.json)
-          echo "POSTMAN_SPEC_ID=$POSTMAN_SPEC_ID" >> $GITHUB_ENV
-          echo "POSTMAN_COLLECTION_ID=$POSTMAN_COLLECTION_ID" >> $GITHUB_ENV
+          export POSTMAN_SPEC_ID=$(yq -r '.POSTMAN_SPEC_ID' config/spec-meta.json)
+          export POSTMAN_COLLECTION_ID=$(yq -r '.POSTMAN_COLLECTION_ID' config/spec-meta.json)
+          echo "POSTMAN_SPEC_ID=${POSTMAN_SPEC_ID//\"/}" >> $GITHUB_ENV
+          echo "POSTMAN_COLLECTION_ID=${POSTMAN_COLLECTION_ID//\"/}" >> $GITHUB_ENV
 
       - name: 🧾 Log Postman Workspace ID
         run: echo 'Using Postman Workspace ID:${{ secrets.POSTMAN_WORKSPACE_ID }}'
