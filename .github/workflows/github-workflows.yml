@@ -60,7 +60,7 @@ jobs:
           SWAGGER_PATH: ${{ env.SWAGGER_PATH }}
         run: |
           yq -o=json '.' "$SWAGGER_PATH" > openapi.json
-          echo '{}' | yq -o=json 
+          echo '{}' | yq -o=json ' 
             .name = "Products & Orders" |
             .type = "OPENAPI:3.0" |
             .files = [{"path":"index.yaml"}]
