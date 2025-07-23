@@ -33,18 +33,18 @@ jobs:
           fi
           echo "SWAGGER_PATH=$SWAGGER_FILE" >> $GITHUB_ENV
 
-            - name: 📁 Ensure config/spec-meta.json exists
-            run: |
+                  - name: 📁 Ensure config/spec-meta.json exists
+                  run: |
           mkdir -p config
           if [ ! -f config/spec-meta.json ]; then
-            cat <<EOF > config/spec-meta.json
-{
-  "POSTMAN_SPEC_ID": "",
-  "POSTMAN_COLLECTION_ID": "",
-  "LAST_UPDATED": ""
-}
-EOF
+            printf '%s\n' \
+              '{' \
+              '  "POSTMAN_SPEC_ID": "",' \
+              '  "POSTMAN_COLLECTION_ID": "",' \
+              '  "LAST_UPDATED": ""' \
+              '}' > config/spec-meta.json
           fi
+
 
 
       - name: 📤 Read existing Postman IDs
