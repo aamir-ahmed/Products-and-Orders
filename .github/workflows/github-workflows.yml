@@ -18,8 +18,10 @@ jobs:
         with:
           token: ${{ secrets.GH_TOKEN }}
 
-      - name: Install jq
+      - name: Install yq & jq
         run: |
+          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
           sudo apt-get update && sudo apt-get install -y jq
 
       - name: 🔍 Find Swagger File
@@ -42,13 +44,13 @@ jobs:
       - name: 📤 Read existing Postman IDs
         id: read_meta
         run: |
-          export POSTMAN_SPEC_ID=$(jq -r '.POSTMAN_SPEC_ID' config/spec-meta.json)
-          export POSTMAN_COLLECTION_ID=$(jq -r '.POSTMAN_COLLECTION_ID' config/spec-meta.json)
+          POSTMAN_SPEC_ID=$(yq -r '.POSTMAN_SPEC_ID' config/spec-meta.json)
+          POSTMAN_COLLECTION_ID=$(yq -r '.POSTMAN_COLLECTION_ID' config/spec-meta.json)
           echo "POSTMAN_SPEC_ID=${POSTMAN_SPEC_ID}" >> $GITHUB_ENV
           echo "POSTMAN_COLLECTION_ID=${POSTMAN_COLLECTION_ID}" >> $GITHUB_ENV
 
-      - name: 🗒️ Log Postman Workspace ID
-        run: echo 'Using Postman Workspace ID: ${{ secrets.POSTMAN_WORKSPACE_ID }}'
+      - name: 🧾 Log Postman Workspace ID
+        run: echo "Using Postman Workspace ID: ${{ secrets.POSTMAN_WORKSPACE_ID }}"
 
       - name: 🧪 Create Spec and Generate Collection
         if: env.POSTMAN_SPEC_ID == ''
@@ -86,7 +88,7 @@ jobs:
           status=$(echo "$response" | tail -n1)
 
           if [[ "$status" =~ ^20[01]$ ]]; then
-            spec_id=$(echo "$body" | jq -r '.spec.id')
+            spec_id=$(echo "$body" | jq -r '.id')
             echo "POSTMAN_SPEC_ID=$spec_id" >> $GITHUB_ENV
           else
             echo "❌ Failed to create spec (HTTP $status)"
@@ -158,8 +160,11 @@ jobs:
           git config user.email "actions@github.com"
           git checkout master
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          jq -n --arg sid "$POSTMAN_SPEC_ID" --arg cid "$POSTMAN_COLLECTION_ID" --arg ts "$TIMESTAMP" \
-            '{POSTMAN_SPEC_ID: $sid, POSTMAN_COLLECTION_ID: $cid, LAST_UPDATED: $ts}' > config/spec-meta.json
+          echo "{" > config/spec-meta.json
+          echo "  \"POSTMAN_SPEC_ID\": \"${POSTMAN_SPEC_ID}\"," >> config/spec-meta.json
+          echo "  \"POSTMAN_COLLECTION_ID\": \"${POSTMAN_COLLECTION_ID}\"," >> config/spec-meta.json
+          echo "  \"LAST_UPDATED\": \"$TIMESTAMP\"" >> config/spec-meta.json
+          echo "}" >> config/spec-meta.json
           git add config/spec-meta.json
           git commit -m "🔄 Update Postman IDs at $TIMESTAMP"
           git push https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/aamir-ahmed/Products-and-Orders.git master
