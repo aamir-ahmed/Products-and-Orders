@@ -1,4 +1,4 @@
-name: 🐞 Debug: Postman Spec & Collection Workflow
+name: "🐞 Debug: Postman Spec & Collection Workflow"
 
 on:
   workflow_dispatch:
