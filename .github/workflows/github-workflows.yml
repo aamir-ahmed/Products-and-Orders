@@ -43,11 +43,9 @@ jobs:
         if: env.POSTMAN_SPEC_ID != '' && env.POSTMAN_SPEC_ID != 'null'
         run: |
           SWAGGER_PATH="./Products-and-orders.yaml"
-          CONTENT=$(cat "$SWAGGER_PATH")
-          echo "$CONTENT" > tmp-content.yaml
 
           jq -n \
-            --arg content "$CONTENT" \
+            --rawfile content "$SWAGGER_PATH" \
             '{
               files: [{ path: "index.yaml", content: $content }]
             }' > update-spec-payload.json
@@ -81,12 +79,11 @@ jobs:
           export WORKSPACE_ID=${{ secrets.POSTMAN_WORKSPACE_ID }}
 
           SWAGGER_PATH="./Products-and-orders.yaml"
-          CONTENT=$(cat "$SWAGGER_PATH")
 
           jq -n \
+            --rawfile content "$SWAGGER_PATH" \
             --arg name "Products & Orders" \
             --arg type "OPENAPI:3.0" \
-            --arg content "$CONTENT" \
             '{
               name: $name,
               type: $type,
