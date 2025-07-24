@@ -57,6 +57,13 @@ jobs:
             -H "Content-Type: application/json" \
             --data @update-spec-payload.json)
 
+                    body=$(echo "$update_response" | head -n -1)
+          status=$(echo "$update_response" | tail -n1)
+
+          echo "📨 API response:"
+          echo "$body"
+          echo "$status"
+          
           if [[ "$update_response" =~ ^20[0-4]$ ]]; then
             echo "✅ Spec updated successfully. Triggering collection regeneration..."
 
