@@ -23,8 +23,7 @@ jobs:
           node-version: 20
 
       - name: ⚖️ Install required tools
-        run: |
-          sudo apt-get update && sudo apt-get install -y jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: 📂 Read existing Postman IDs
         id: read_meta
@@ -43,42 +42,33 @@ jobs:
         if: env.POSTMAN_SPEC_ID != '' && env.POSTMAN_SPEC_ID != 'null'
         run: |
           SWAGGER_PATH="./Products-and-orders.yaml"
-          echo "📥 Reading Swagger content from: $SWAGGER_PATH"
-          RAW_YAML=$(cat "$SWAGGER_PATH")
-          SPEC_CONTENT=$(echo "$RAW_YAML" | jq -Rs .)
+          SPEC_CONTENT=$(jq -Rs . < "$SWAGGER_PATH")
           echo "{\"content\": ${SPEC_CONTENT}}" > payload.json
+
           echo "📤 Sending PATCH request to update spec..."
-          response=$(curl -s -w "\n%{http_code}" --location --request PATCH \
+          response=$(curl -s -w "\n%{http_code}" -X PATCH \
             "https://api.getpostman.com/specs/${POSTMAN_SPEC_ID}/files/index.yaml" \
-            --header "Content-Type: application/json" \
-            --header "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}" \
             --data @payload.json)
 
-          body=$(echo "$response" | head -n -1)
-          status=$(echo "$response" | tail -n1)
-
-          echo "📨 Response status: $status"
+          status=$(tail -n1 <<< "$response")
           if [[ "$status" == "200" || "$status" == "202" ]]; then
             echo "✅ Spec updated successfully!"
           else
-            echo "❌ Failed to update spec (HTTP $status):"
-            echo "$body"
+            echo "❌ Failed to update spec (HTTP $status)"
             exit 1
           fi
 
           echo "📤 Syncing spec to collection..."
-          sync_response=$(curl -s -w "\n%{http_code}" --location --request PUT \
+          sync_status=$(curl -s -w "\n%{http_code}" -X PUT \
             "https://api.getpostman.com/collections/${POSTMAN_COLLECTION_ID}/synchronizations?specId=${POSTMAN_SPEC_ID}" \
-            --header "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}")
-
-          sync_body=$(echo "$sync_response" | head -n -1)
-          sync_status=$(echo "$sync_response" | tail -n1)
+            -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}" | tail -n1)
 
           if [[ "$sync_status" == "200" || "$sync_status" == "202" ]]; then
             echo "✅ Collection synced successfully!"
           else
-            echo "❌ Failed to sync collection (HTTP $sync_status):"
-            echo "$sync_body"
+            echo "❌ Failed to sync collection (HTTP $sync_status)"
             exit 1
           fi
 
@@ -86,16 +76,8 @@ jobs:
         if: env.POSTMAN_SPEC_ID == '' || env.POSTMAN_SPEC_ID == 'null'
         run: |
           SWAGGER_PATH="./Products-and-orders.yaml"
-
-          jq -n \
-            --rawfile content "$SWAGGER_PATH" \
-            --arg name "Products & Orders" \
-            --arg type "OPENAPI:3.0" \
-            '{
-              name: $name,
-              type: $type,
-              files: [{ path: "index.yaml", content: $content }]
-            }' > create-spec-payload.json
+          jq -n --rawfile content "$SWAGGER_PATH" --arg name "Products & Orders" --arg type "OPENAPI:3.0" \
+            '{name: $name, type: $type, files: [{ path: "index.yaml", content: $content }]}' > create-spec-payload.json
 
           response=$(curl -s -w "\n%{http_code}" -X POST \
             "https://api.getpostman.com/specs?workspaceId=${{ secrets.POSTMAN_WORKSPACE_ID }}" \
@@ -103,75 +85,57 @@ jobs:
             -H "Content-Type: application/json" \
             --data @create-spec-payload.json)
 
-          body=$(echo "$response" | head -n -1)
-          status=$(echo "$response" | tail -n1)
-
-          echo "📨 API response:"
-          echo "$body"
-
-          spec_id=$(echo "$body" | jq -r '.spec.id // .id')
+          body=$(head -n -1 <<< "$response")
+          status=$(tail -n1 <<< "$response")
+          spec_id=$(jq -r '.spec.id // .id' <<< "$body")
 
           if [[ -z "$spec_id" || "$spec_id" == "null" ]]; then
-            echo "❌ Failed to extract spec ID from response."
+            echo "❌ Failed to extract spec ID"
             exit 1
           fi
 
           echo "✅ Spec created with ID: $spec_id"
           echo "POSTMAN_SPEC_ID=$spec_id" >> $GITHUB_ENV
-
-          echo "🔄 Waiting before generating collection..."
-          sleep 5
+          echo "🔄 Waiting for spec processing..."
+          sleep 4
 
           GEN_PAYLOAD='{"name":"Products & Orders","options":{"parametersResolution":"Example"}}'
-
-          echo "📤 Generating collection from spec ID: $spec_id"
-
-          gen_response=$(curl -s --retry 3 --retry-delay 5 -w "\n%{http_code}" -X POST \
+          gen_response=$(curl -s -w "\n%{http_code}" -X POST \
             "https://api.getpostman.com/specs/${spec_id}/generations/collection" \
             -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}" \
             -H "Content-Type: application/json" \
             -d "$GEN_PAYLOAD")
 
-          gen_body=$(echo "$gen_response" | head -n -1)
-          gen_status=$(echo "$gen_response" | tail -n1)
-
+          gen_status=$(tail -n1 <<< "$gen_response")
           if [[ "$gen_status" =~ ^20[0-2]$ ]]; then
-            echo "✅ Generation request accepted. Waiting for result..."
-            sleep 5
-
-            collection_response=$(curl -s --retry 3 --retry-delay 5 -X GET \
-              "https://api.getpostman.com/specs/${spec_id}/generations/collection" \
-              -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}")
-
-            echo "✅ Collection generation result:"
-            echo "$collection_response"
-
-            collection_id=$(echo "$collection_response" | jq -r '.collections[0].id // empty')
-
-            if [[ -n "$collection_id" ]]; then
-              echo "✅ Collection created with ID: $collection_id"
-              echo "POSTMAN_COLLECTION_ID=$collection_id" >> $GITHUB_ENV
-              echo "NEW_SPEC_CREATED=true" >> $GITHUB_ENV
-            else
-              echo "❌ Failed to extract collection ID from generation response."
+            for i in {1..5}; do
+              echo "⏳ Checking collection generation... (try $i)"
+              sleep 2
+              collection_response=$(curl -s -X GET \
+                "https://api.getpostman.com/specs/${spec_id}/generations/collection" \
+                -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}")
+              collection_id=$(jq -r '.collections[0].id // empty' <<< "$collection_response")
+              if [[ -n "$collection_id" ]]; then
+                echo "✅ Collection created with ID: $collection_id"
+                echo "POSTMAN_COLLECTION_ID=$collection_id" >> $GITHUB_ENV
+                echo "NEW_SPEC_CREATED=true" >> $GITHUB_ENV
+                break
+              fi
+            done
+            if [[ -z "$collection_id" ]]; then
+              echo "❌ Failed to extract collection ID"
               exit 1
             fi
           else
-            echo "❌ Collection generation request failed (HTTP $gen_status)"
-            echo "$gen_body"
+            echo "❌ Collection generation failed (HTTP $gen_status)"
             exit 1
           fi
 
-          echo "🖊️ Updating config/spec-meta.json"
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          jq -n \
-            --arg spec "$spec_id" \
-            --arg col "$collection_id" \
-            --arg time "$TIMESTAMP" \
-            '{POSTMAN_SPEC_ID: $spec, POSTMAN_COLLECTION_ID: $col, LAST_UPDATED: $time}' \
-            > config/spec-meta.json
+          jq -n --arg spec "$spec_id" --arg col "$collection_id" --arg time "$TIMESTAMP" \
+            '{POSTMAN_SPEC_ID: $spec, POSTMAN_COLLECTION_ID: $col, LAST_UPDATED: $time}' > config/spec-meta.json
 
-      - name: 📅 Commit spec-meta.json update
+      - name: 🗓️ Commit spec-meta.json update
         if: env.NEW_SPEC_CREATED == 'true'
         run: |
           git config user.name "github-actions"
