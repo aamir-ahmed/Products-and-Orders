@@ -50,9 +50,11 @@ jobs:
             '{
               files: [{ path: "index.yaml", content: $content }]
             }' > update-spec-payload.json
+            echo "Payload to be sent:"
+            cat update-spec-payload.json
 
           echo "📤 Updating existing Spec..."
-          update_response=$(curl -s -o /dev/null -w "%{http_code}" -X PUT \
+          update_response=$(curl -s -w "\n%{http_code}" -X PUT \
             "https://api.getpostman.com/specs/${POSTMAN_SPEC_ID}" \
             -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}" \
             -H "Content-Type: application/json" \
