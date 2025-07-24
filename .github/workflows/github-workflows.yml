@@ -63,8 +63,8 @@ jobs:
 
             GEN_PAYLOAD='{"name":"Products & Orders","options":{"parametersResolution":"Example"}}'
 
-            curl -s -X POST \
-              "https://api.getpostman.com/specs/${POSTMAN_SPEC_ID}/generations/collection" \
+            curl -s -X PUT \
+              https://api.getpostman.com/collections/${POSTMAN_COLLECTION_ID}/synchronizations?specId=${POSTMAN_SPEC_ID}" \
               -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}" \
               -H "Content-Type: application/json" \
               -d "$GEN_PAYLOAD"
@@ -128,6 +128,7 @@ jobs:
             collection_response=$(curl -s -X GET \
               "https://api.getpostman.com/specs/${spec_id}/generations/collection" \
               -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}")
+            echo "✅ Collection created with response: $collection_response"
             collection_id=$(echo "$collection_response" | jq -r '.collections[0].taskId')
             echo "✅ Collection created with ID: $collection_id"
             echo "POSTMAN_COLLECTION_ID=$collection_id" >> $GITHUB_ENV
