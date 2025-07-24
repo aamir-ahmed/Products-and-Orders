@@ -125,7 +125,7 @@ jobs:
           gen_status=$(echo "$gen_response" | tail -n1)
 
           if [[ "$gen_status" =~ ^20[0-2]$ ]]; then
-            collection_response=$(curl -s -X GET \
+            collection_response=$(curl -s -X POST \
               "https://api.getpostman.com/specs/${spec_id}/generations/collection" \
               -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}")
             echo "✅ Collection created with response: $collection_response"
