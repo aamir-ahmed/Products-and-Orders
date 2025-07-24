@@ -116,27 +116,47 @@ jobs:
 
           GEN_PAYLOAD='{"name":"Products & Orders","options":{"parametersResolution":"Example"}}'
 
-          gen_response=$(curl -s -w "\n%{http_code}" -X POST \
-            "https://api.getpostman.com/specs/${spec_id}/generations/collection" \
-            -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d "$GEN_PAYLOAD")
+         echo "📤 Generating collection from spec ID: $spec_id"
 
-          gen_status=$(echo "$gen_response" | tail -n1)
+gen_response=$(curl -s --retry 3 --retry-delay 5 -w "\n%{http_code}" -X POST \
+  "https://api.getpostman.com/specs/${spec_id}/generations/collection" \
+  -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}" \
+  -H "Content-Type: application/json" \
+  -d "$GEN_PAYLOAD")
 
-          if [[ "$gen_status" =~ ^20[0-2]$ ]]; then
-            collection_response=$(curl -s -X POST \
-              "https://api.getpostman.com/specs/${spec_id}/generations/collection" \
-              -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}")
-            echo "✅ Collection created with response: $collection_response"
-            collection_id=$(echo "$collection_response" | jq -r '.collections[0].taskId')
-            echo "✅ Collection created with ID: $collection_id"
-            echo "POSTMAN_COLLECTION_ID=$collection_id" >> $GITHUB_ENV
-            echo "NEW_SPEC_CREATED=true" >> $GITHUB_ENV
-          else
-            echo "❌ Collection generation failed (HTTP $gen_status)"
-            exit 1
-          fi
+# Split response
+gen_body=$(echo "$gen_response" | head -n -1)
+gen_status=$(echo "$gen_response" | tail -n1)
+
+if [[ "$gen_status" =~ ^20[0-2]$ ]]; then
+  echo "✅ Generation request accepted. Waiting for result..."
+
+  # Optional: Wait before polling (Postman can be async)
+  sleep 5
+
+  collection_response=$(curl -s --retry 3 --retry-delay 5 -X GET \
+    "https://api.getpostman.com/specs/${spec_id}/generations/collection" \
+    -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}")
+
+  echo "✅ Collection generation result:"
+  echo "$collection_response"
+
+  collection_id=$(echo "$collection_response" | jq -r '.collections[0].id // empty')
+
+  if [[ -n "$collection_id" ]]; then
+    echo "✅ Collection created with ID: $collection_id"
+    echo "POSTMAN_COLLECTION_ID=$collection_id" >> $GITHUB_ENV
+    echo "NEW_SPEC_CREATED=true" >> $GITHUB_ENV
+  else
+    echo "❌ Failed to extract collection ID from generation response."
+    exit 1
+  fi
+else
+  echo "❌ Collection generation request failed (HTTP $gen_status)"
+  echo "$gen_body"
+  exit 1
+fi
+
 
           echo "🖊️ Updating config/spec-meta.json"
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
