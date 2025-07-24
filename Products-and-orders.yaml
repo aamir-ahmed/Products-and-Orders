@@ -9,19 +9,6 @@ servers:
 
 paths:
   /api/products:
-    get:
-      summary: Returns a list of products from the database
-      operationId: getProducts
-      tags:
-        - Products
-      responses:
-        '200':
-          description: A list of current products
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProductsList.yaml'
-
     post:
       summary: Create a new product in the database
       operationId: createProduct
