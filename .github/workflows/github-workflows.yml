@@ -6,7 +6,8 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - '**/Products-and-orders.yaml'
+      - '**/*.yaml'
+      - '**/*.json'
 
 jobs:
   update-postman-assets:
@@ -41,7 +42,8 @@ jobs:
       - name: ♻️ Update existing Spec and sync updates to Collection
         if: env.POSTMAN_SPEC_ID != '' && env.POSTMAN_SPEC_ID != 'null'
         run: |
-          SWAGGER_PATH="./Products-and-orders.yaml"
+          SWAGGER_PATH=$(find . -type f \( -name "*.yaml" -o -name "*.json" \) | head -n1)
+          SPEC_NAME=$(basename "$SWAGGER_PATH" | sed 's/\.[^.]*$//')
           SPEC_CONTENT=$(jq -Rs . < "$SWAGGER_PATH")
           echo "{\"content\": ${SPEC_CONTENT}}" > payload.json
 
@@ -75,8 +77,9 @@ jobs:
       - name: 📈 Create Spec and Collection if IDs not present
         if: env.POSTMAN_SPEC_ID == '' || env.POSTMAN_SPEC_ID == 'null'
         run: |
-          SWAGGER_PATH="./Products-and-orders.yaml"
-          jq -n --rawfile content "$SWAGGER_PATH" --arg name "Products & Orders" --arg type "OPENAPI:3.0" \
+          SWAGGER_PATH=$(find . -type f \( -name "*.yaml" -o -name "*.json" \) | head -n1)
+          SPEC_NAME=$(basename "$SWAGGER_PATH" | sed 's/\.[^.]*$//')
+          jq -n --rawfile content "$SWAGGER_PATH" --arg name "$SPEC_NAME" --arg type "OPENAPI:3.0" \
             '{name: $name, type: $type, files: [{ path: "index.yaml", content: $content }]}' > create-spec-payload.json
 
           response=$(curl -s -w "\n%{http_code}" -X POST \
@@ -99,7 +102,7 @@ jobs:
           echo "🔄 Waiting for spec processing..."
           sleep 4
 
-          GEN_PAYLOAD='{"name":"Products & Orders","options":{"parametersResolution":"Example"}}'
+          GEN_PAYLOAD=$(jq -n --arg name "$SPEC_NAME" '{name: $name, options: {parametersResolution: "Example"}}')
           gen_response=$(curl -s -w "\n%{http_code}" -X POST \
             "https://api.getpostman.com/specs/${spec_id}/generations/collection" \
             -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}" \
