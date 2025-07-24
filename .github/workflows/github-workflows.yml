@@ -1,12 +1,12 @@
 name: 🚀 Update Postman Spec and Collection
 permissions:
   contents: write
+
 on:
   workflow_dispatch:
   push:
     paths:
-      - '**/*.yaml'
-      - '**/*.json'
+      - '**/Products-and-orders.yaml'
 
 jobs:
   update-postman-assets:
@@ -44,6 +44,7 @@ jobs:
         run: |
           SWAGGER_PATH="./Products-and-orders.yaml"
           CONTENT=$(cat "$SWAGGER_PATH")
+          echo "$CONTENT" > tmp-content.yaml
 
           jq -n \
             --arg content "$CONTENT" \
@@ -76,6 +77,9 @@ jobs:
       - name: 📈 Create Spec and Collection if IDs not present
         if: env.POSTMAN_SPEC_ID == '' || env.POSTMAN_SPEC_ID == 'null'
         run: |
+          export POSTMAN_API_KEY=${{ secrets.POSTMAN_API_KEY }}
+          export WORKSPACE_ID=${{ secrets.POSTMAN_WORKSPACE_ID }}
+
           SWAGGER_PATH="./Products-and-orders.yaml"
           CONTENT=$(cat "$SWAGGER_PATH")
 
@@ -90,8 +94,8 @@ jobs:
             }' > create-spec-payload.json
 
           response=$(curl -s -w "\n%{http_code}" -X POST \
-            "https://api.getpostman.com/specs?workspaceId=${{ secrets.POSTMAN_WORKSPACE_ID }}" \
-            -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}" \
+            "https://api.getpostman.com/specs?workspaceId=${WORKSPACE_ID}" \
+            -H "X-API-Key: $POSTMAN_API_KEY" \
             -H "Content-Type: application/json" \
             --data @create-spec-payload.json)
 
@@ -116,47 +120,43 @@ jobs:
 
           GEN_PAYLOAD='{"name":"Products & Orders","options":{"parametersResolution":"Example"}}'
 
-         echo "📤 Generating collection from spec ID: $spec_id"
+          echo "📤 Generating collection from spec ID: $spec_id"
 
-gen_response=$(curl -s --retry 3 --retry-delay 5 -w "\n%{http_code}" -X POST \
-  "https://api.getpostman.com/specs/${spec_id}/generations/collection" \
-  -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}" \
-  -H "Content-Type: application/json" \
-  -d "$GEN_PAYLOAD")
+          gen_response=$(curl -s --retry 3 --retry-delay 5 -w "\n%{http_code}" -X POST \
+            "https://api.getpostman.com/specs/${spec_id}/generations/collection" \
+            -H "X-API-Key: $POSTMAN_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$GEN_PAYLOAD")
 
-# Split response
-gen_body=$(echo "$gen_response" | head -n -1)
-gen_status=$(echo "$gen_response" | tail -n1)
+          gen_body=$(echo "$gen_response" | head -n -1)
+          gen_status=$(echo "$gen_response" | tail -n1)
 
-if [[ "$gen_status" =~ ^20[0-2]$ ]]; then
-  echo "✅ Generation request accepted. Waiting for result..."
+          if [[ "$gen_status" =~ ^20[0-2]$ ]]; then
+            echo "✅ Generation request accepted. Waiting for result..."
+            sleep 5
 
-  # Optional: Wait before polling (Postman can be async)
-  sleep 5
+            collection_response=$(curl -s --retry 3 --retry-delay 5 -X GET \
+              "https://api.getpostman.com/specs/${spec_id}/generations/collection" \
+              -H "X-API-Key: $POSTMAN_API_KEY")
 
-  collection_response=$(curl -s --retry 3 --retry-delay 5 -X GET \
-    "https://api.getpostman.com/specs/${spec_id}/generations/collection" \
-    -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}")
+            echo "✅ Collection generation result:"
+            echo "$collection_response"
 
-  echo "✅ Collection generation result:"
-  echo "$collection_response"
+            collection_id=$(echo "$collection_response" | jq -r '.collections[0].id // empty')
 
-  collection_id=$(echo "$collection_response" | jq -r '.collections[0].id // empty')
-
-  if [[ -n "$collection_id" ]]; then
-    echo "✅ Collection created with ID: $collection_id"
-    echo "POSTMAN_COLLECTION_ID=$collection_id" >> $GITHUB_ENV
-    echo "NEW_SPEC_CREATED=true" >> $GITHUB_ENV
-  else
-    echo "❌ Failed to extract collection ID from generation response."
-    exit 1
-  fi
-else
-  echo "❌ Collection generation request failed (HTTP $gen_status)"
-  echo "$gen_body"
-  exit 1
-fi
-
+            if [[ -n "$collection_id" ]]; then
+              echo "✅ Collection created with ID: $collection_id"
+              echo "POSTMAN_COLLECTION_ID=$collection_id" >> $GITHUB_ENV
+              echo "NEW_SPEC_CREATED=true" >> $GITHUB_ENV
+            else
+              echo "❌ Failed to extract collection ID from generation response."
+              exit 1
+            fi
+          else
+            echo "❌ Collection generation request failed (HTTP $gen_status)"
+            echo "$gen_body"
+            exit 1
+          fi
 
           echo "🖊️ Updating config/spec-meta.json"
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -172,7 +172,7 @@ fi
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
+          git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }}
           git add config/spec-meta.json
           git commit -m "🔄 Update spec-meta.json after new spec creation"
           git push
