@@ -57,7 +57,7 @@ jobs:
             -H "Content-Type: application/json" \
             --data @update-spec-payload.json)
 
-                    body=$(echo "$update_response" | head -n -1)
+          body=$(echo "$update_response" | head -n -1)
           status=$(echo "$update_response" | tail -n1)
 
           echo "📨 API response:"
