@@ -89,7 +89,7 @@ jobs:
           echo "✅ Spec created with ID: $spec_id"
           echo "POSTMAN_SPEC_ID=$spec_id" >> $GITHUB_ENV
           echo "🔄 Waiting for spec processing..."
-          sleep 4
+          sleep 10
           GEN_PAYLOAD=$(jq -n --arg name "$SPEC_NAME" '{name: $name, options: {parametersResolution: "Example"}}')
           gen_response=$(curl -s -w "\n%{http_code}" -X POST \
             "https://api.getpostman.com/specs/${spec_id}/generations/collection" \
