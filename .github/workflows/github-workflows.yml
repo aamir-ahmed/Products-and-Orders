@@ -39,7 +39,7 @@ jobs:
           echo "POSTMAN_SPEC_ID=$POSTMAN_SPEC_ID" >> $GITHUB_ENV
           echo "POSTMAN_COLLECTION_ID=$POSTMAN_COLLECTION_ID" >> $GITHUB_ENV
 
-      - name: ♻️ Update existing Spec and regenerate Collection
+      - name: ♻️ Update existing Spec and sync updates to Collection
         if: env.POSTMAN_SPEC_ID != '' && env.POSTMAN_SPEC_ID != 'null'
         run: |
           SWAGGER_PATH="./Products-and-orders.yaml"
@@ -64,7 +64,7 @@ jobs:
             GEN_PAYLOAD='{"name":"Products & Orders","options":{"parametersResolution":"Example"}}'
 
             curl -s -X PUT \
-              https://api.getpostman.com/collections/${POSTMAN_COLLECTION_ID}/synchronizations?specId=${POSTMAN_SPEC_ID}" \
+              "https://api.getpostman.com/collections/${POSTMAN_COLLECTION_ID}/synchronizations?specId=${POSTMAN_SPEC_ID}" \
               -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}" \
               -H "Content-Type: application/json" \
               -d "$GEN_PAYLOAD"
