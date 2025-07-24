@@ -43,9 +43,10 @@ jobs:
         if: env.POSTMAN_SPEC_ID != '' && env.POSTMAN_SPEC_ID != 'null'
         run: |
           SWAGGER_PATH="./Products-and-orders.yaml"
+          CONTENT=$(cat "$SWAGGER_PATH")
 
           jq -n \
-            --rawfile content "$SWAGGER_PATH" \
+            --arg content "$CONTENT" \
             '{
               files: [{ path: "index.yaml", content: $content }]
             }' > update-spec-payload.json
@@ -57,13 +58,8 @@ jobs:
             -H "Content-Type: application/json" \
             --data @update-spec-payload.json)
 
-          body=$(echo "$update_response" | head -n -1)
-          status=$(echo "$update_response" | tail -n1)
+          echo "🔁 Spec update response code: $update_response"
 
-          echo "📨 API response:"
-          echo "$body"
-          echo "$status"
-          
           if [[ "$update_response" =~ ^20[0-4]$ ]]; then
             echo "✅ Spec updated successfully. Triggering collection regeneration..."
 
@@ -84,7 +80,6 @@ jobs:
         run: |
           export POSTMAN_API_KEY=${{ secrets.POSTMAN_API_KEY }}
           export WORKSPACE_ID=${{ secrets.POSTMAN_WORKSPACE_ID }}
-
           SWAGGER_PATH="./Products-and-orders.yaml"
 
           jq -n \
