@@ -41,39 +41,31 @@ jobs:
 
       - name: ♻️ Update existing Spec and sync updates to Collection
         if: env.POSTMAN_SPEC_ID != '' && env.POSTMAN_SPEC_ID != 'null'
+        env:
+          POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
         run: |
           SWAGGER_PATH="./Products-and-orders.yaml"
-          CONTENT=$(cat "$SWAGGER_PATH")
+          echo "📥 Reading Swagger content from: $SWAGGER_PATH"
+          RAW_YAML=$(cat "$SWAGGER_PATH")
+          SPEC_CONTENT=$(echo "$RAW_YAML" | jq -Rs .)
+          echo "{\"content\": ${SPEC_CONTENT}}" > payload.json
 
-          jq -n \
-            --arg content "$CONTENT" \
-            '{
-              files: [{ path: "index.yaml", content: $content }]
-            }' > update-spec-payload.json
-            echo "Payload to be sent:"
-            cat update-spec-payload.json
+          echo "📤 Sending PATCH request to update spec..."
+          response=$(curl -s -w "\n%{http_code}" --location --request PATCH \
+            "https://api.getpostman.com/specs/${POSTMAN_SPEC_ID}/files/index.yaml" \
+            --header "Content-Type: application/json" \
+            --header "X-API-Key: ${POSTMAN_API_KEY}" \
+            --data @payload.json)
 
-          echo "📤 Updating existing Spec..."
-          update_response=$(curl -s -w "\n%{http_code}" -X PUT \
-            "https://api.getpostman.com/specs/${POSTMAN_SPEC_ID}" \
-            -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            --data @update-spec-payload.json)
+          body=$(echo "$response" | head -n -1)
+          status=$(echo "$response" | tail -n1)
 
-          echo "🔁 Spec update response code: $update_response"
-
-          if [[ "$update_response" =~ ^20[0-4]$ ]]; then
-            echo "✅ Spec updated successfully. Triggering collection regeneration..."
-
-            GEN_PAYLOAD='{"name":"Products & Orders","options":{"parametersResolution":"Example"}}'
-
-            curl -s -X PUT \
-              "https://api.getpostman.com/collections/${POSTMAN_COLLECTION_ID}/synchronizations?specId=${POSTMAN_SPEC_ID}" \
-              -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}" \
-              -H "Content-Type: application/json" \
-              -d "$GEN_PAYLOAD"
+          echo "📨 Response status: $status"
+          if [[ "$status" == "200" || "$status" == "202" ]]; then
+            echo "✅ Spec updated successfully!"
           else
-            echo "❌ Failed to update Spec (HTTP $update_response)"
+            echo "❌ Failed to update spec (HTTP $status):"
+            echo "$body"
             exit 1
           fi
 
