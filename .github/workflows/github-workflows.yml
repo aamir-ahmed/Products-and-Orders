@@ -67,7 +67,7 @@ jobs:
           fi
 
           echo "📤 Syncing spec to collection..."
-          sync_response=$(curl -s -w "\n%{http_code}" --location --request POST \
+          sync_response=$(curl -s -w "\n%{http_code}" --location --request PUT \
             "https://api.getpostman.com/collections/${POSTMAN_COLLECTION_ID}/sync" \
             --header "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}")
 
