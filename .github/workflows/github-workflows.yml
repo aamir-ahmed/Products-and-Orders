@@ -2,7 +2,7 @@ name: 🐞 Debug: Postman Spec & Collection Workflow
 
 on:
   workflow_dispatch:
-  push:  # Removed path filters for easier debugging
+  push:
 
 permissions:
   contents: write
@@ -40,14 +40,14 @@ jobs:
           echo "🗃️ Loaded Spec ID: $POSTMAN_SPEC_ID"
           echo "🗃️ Loaded Collection ID: $POSTMAN_COLLECTION_ID"
 
-      - name: 🆕 Detect Swagger file
+      - name: 📄 Detect Swagger file
         run: |
           SWAGGER_PATH=$(find . -type f \( -name "*.yaml" -o -name "*.json" \) | head -n1)
           echo "SWAGGER_PATH=$SWAGGER_PATH" >> $GITHUB_ENV
           echo "📄 Swagger file detected at: $SWAGGER_PATH"
 
       - name: 🛠️ PATCH spec if exists
-        if: env.POSTMAN_SPEC_ID != '' && env.POSTMAN_SPEC_ID != 'null'
+        if: ${{ env.POSTMAN_SPEC_ID != '' && env.POSTMAN_SPEC_ID != 'null' }}
         run: |
           SPEC_CONTENT=$(jq -Rs . < "$SWAGGER_PATH")
           echo "{\"content\": ${SPEC_CONTENT}}" > payload.json
@@ -60,17 +60,27 @@ jobs:
           echo "$response"
           status=$(tail -n1 <<< "$response")
           echo "Status: $status"
-          [[ "$status" =~ ^20[0-2]$ ]] || exit 1
+          if [[ "$status" =~ ^20[0-2]$ ]]; then
+            echo "✅ Spec updated!"
+          else
+            echo "❌ Update failed."
+            exit 1
+          fi
 
           echo "📤 Syncing to collection..."
           sync_status=$(curl -s -w "\n%{http_code}" -X PUT \
             "https://api.getpostman.com/collections/${POSTMAN_COLLECTION_ID}/synchronizations?specId=${POSTMAN_SPEC_ID}" \
             -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}" | tee sync_output.log | tail -n1)
           echo "Sync status: $sync_status"
-          [[ "$sync_status" =~ ^20[0-2]$ ]] || exit 1
+          if [[ "$sync_status" =~ ^20[0-2]$ ]]; then
+            echo "✅ Sync successful"
+          else
+            echo "❌ Sync failed"
+            exit 1
+          fi
 
       - name: 🧪 Create spec and collection (if not exists)
-        if: env.POSTMAN_SPEC_ID == '' || env.POSTMAN_SPEC_ID == 'null'
+        if: ${{ env.POSTMAN_SPEC_ID == '' || env.POSTMAN_SPEC_ID == 'null' }}
         run: |
           SPEC_NAME=$(basename "$SWAGGER_PATH" | sed 's/\.[^.]*$//')
           jq -n --rawfile content "$SWAGGER_PATH" --arg name "$SPEC_NAME" --arg type "OPENAPI:3.0" \
@@ -86,7 +96,10 @@ jobs:
           body=$(head -n -1 <<< "$response")
           status=$(tail -n1 <<< "$response")
           spec_id=$(jq -r '.spec.id // .id' <<< "$body")
-          [[ -n "$spec_id" && "$spec_id" != "null" ]] || exit 1
+          if [[ -z "$spec_id" || "$spec_id" == "null" ]]; then
+            echo "❌ Failed to create spec"
+            exit 1
+          fi
           echo "POSTMAN_SPEC_ID=$spec_id" >> $GITHUB_ENV
           echo "✅ Spec created: $spec_id"
 
@@ -101,7 +114,10 @@ jobs:
             -d "$GEN_PAYLOAD")
           echo "$gen_response"
           gen_status=$(tail -n1 <<< "$gen_response")
-          [[ "$gen_status" =~ ^20[0-2]$ ]] || exit 1
+          if [[ ! "$gen_status" =~ ^20[0-2]$ ]]; then
+            echo "❌ Generation failed"
+            exit 1
+          fi
 
           for i in {1..4}; do
             echo "⏳ Polling for collection... (try $i)"
@@ -118,14 +134,18 @@ jobs:
               break
             fi
           done
-          [[ -n "$collection_id" ]] || (echo "❌ Failed to extract collection ID" && exit 1)
+
+          if [[ -z "$collection_id" ]]; then
+            echo "❌ Failed to extract collection ID"
+            exit 1
+          fi
 
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           jq -n --arg spec "$spec_id" --arg col "$collection_id" --arg time "$TIMESTAMP" \
             '{POSTMAN_SPEC_ID: $spec, POSTMAN_COLLECTION_ID: $col, LAST_UPDATED: $time}' > config/spec-meta.json
 
       - name: 📤 Commit spec-meta.json if new spec
-        if: env.NEW_SPEC_CREATED == 'true'
+        if: ${{ env.NEW_SPEC_CREATED == 'true' }}
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
