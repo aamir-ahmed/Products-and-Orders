@@ -9,6 +9,30 @@ servers:
     description: AWS Test Server
 paths:
   /api/products:
+  get:
+      summary: Returns a list of products from the database
+      operationId: getProducts
+      tags:
+        - Products
+      responses:
+        '200':
+          description: A list of current products
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductsList.yaml'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     post:
       summary: Create a new product in the database
       operationId: createProduct
