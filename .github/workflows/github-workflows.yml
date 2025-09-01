@@ -70,7 +70,7 @@ jobs:
       - name: 📈 Create Spec and Collection if IDs not present
         if: env.POSTMAN_SPEC_ID == '' || env.POSTMAN_SPEC_ID == 'null'
         run: |
-          SWAGGER_PATH=$(find . -type f \( -name "*.yaml" -o -name "*.json" \) | head -n1)
+          SWAGGER_PATH=$(find . -type f \( -name "*.yaml" \) | head -n1)
           SPEC_NAME=$(basename "$SWAGGER_PATH" | sed 's/\.[^.]*$//')
           jq -n --rawfile content "$SWAGGER_PATH" --arg name "$SPEC_NAME" --arg type "OPENAPI:3.0" \
             '{name: $name, type: $type, files: [{ path: "index.yaml", content: $content }]}' > create-spec-payload.json
