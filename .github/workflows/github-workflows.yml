@@ -40,7 +40,7 @@ jobs:
       - name: ♻️ Update existing Spec and sync updates to Collection
         if: env.POSTMAN_SPEC_ID != '' && env.POSTMAN_SPEC_ID != 'null'
         run: |
-          SWAGGER_PATH=$(find . -type f \( -name "*.yaml"\) | head -n1)
+          SWAGGER_PATH=$(find . -type f -name "*.yaml" | head -n1)
           SPEC_NAME=$(basename "$SWAGGER_PATH" | sed 's/\.[^.]*$//')
           SPEC_CONTENT=$(jq -Rs . < "$SWAGGER_PATH")
           echo "{\"content\": ${SPEC_CONTENT}}" > payload.json
