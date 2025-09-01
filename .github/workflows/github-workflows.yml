@@ -103,7 +103,7 @@ jobs:
           if [[ "$gen_status" =~ ^20[0-2]$ ]]; then
             for i in {1..5}; do
               echo "⏳ Checking collection generation... (try $i)"
-              sleep 2
+              sleep 10
               collection_response=$(curl -s -X GET \
                 "https://api.getpostman.com/specs/${spec_id}/generations/collection" \
                 -H "X-API-Key: ${{ secrets.POSTMAN_API_KEY }}")
