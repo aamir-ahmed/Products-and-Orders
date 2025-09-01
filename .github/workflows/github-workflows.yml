@@ -81,6 +81,9 @@ jobs:
             --data @create-spec-payload.json)
           body=$(head -n -1 <<< "$response")
           status=$(tail -n1 <<< "$response")
+          echo "Raw response body:"
+          echo "$body"
+          echo "HTTP status: $status"
           spec_id=$(jq -r '.spec.id // .id' <<< "$body")
           if [[ -z "$spec_id" || "$spec_id" == "null" ]]; then
             echo "❌ Failed to extract spec ID"
