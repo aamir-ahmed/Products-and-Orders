@@ -9,7 +9,7 @@ servers:
 
 paths:
   /api/products:
-      get:
+    get:
       summary: Returns a list of products from the database
       operationId: getProducts
       tags:
