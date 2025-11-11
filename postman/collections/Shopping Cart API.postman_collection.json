@@ -1,0 +1,546 @@
+{
+  "info": {
+    "_postman_id": "12c658ac-10eb-4620-a88c-298693fb4f81",
+    "name": "Shopping Cart API",
+    "description": "An API for managing a shopping cart with operations to add, update, remove items, list cart contents, and submit orders.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "7541127"
+  },
+  "item": [
+    {
+      "name": "Cart Management",
+      "item": [
+        {
+          "name": "List Cart Items",
+          "id": "25479657-2a9c-4615-ae84-c7a8e9701523",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart"
+              ]
+            }
+          },
+          "response": [
+            {
+              "id": "4115878c-8b02-47d9-bca6-1861bcf914ad",
+              "name": "Successful Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cart",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cart"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"items\": [\n    {\n      \"id\": \"prod001\",\n      \"name\": \"Wireless Headphones\",\n      \"quantity\": 2,\n      \"price\": 99.99\n    },\n    {\n      \"id\": \"prod002\",\n      \"name\": \"Smartphone Case\",\n      \"quantity\": 1,\n      \"price\": 19.99\n    }\n  ],\n  \"total\": 219.97\n}"
+            },
+            {
+              "id": "daaee6f1-ff19-4ea6-8cd4-d7b4cdde72c5",
+              "name": "Bad Request",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cart",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cart"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Invalid request\",\n  \"message\": \"The request could not be understood by the server due to malformed syntax\"\n}"
+            },
+            {
+              "id": "26ee109a-ce56-4a0f-8e58-99c409423c33",
+              "name": "Unauthorized",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cart",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cart"
+                  ]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Unauthorized\",\n  \"message\": \"Invalid credentials\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Add Item to Cart",
+          "id": "8d94bcc0-4b43-4bc2-ba75-f4355e541417",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"prod001\",\n  \"quantity\": 2\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/cart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart"
+              ]
+            }
+          },
+          "response": [
+            {
+              "id": "46b4caf2-6358-47ad-b609-17460b235bd7",
+              "name": "Item Added Successfully",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productId\": \"prod001\",\n  \"quantity\": 2\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/cart",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cart"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"message\": \"Item added to cart\",\n  \"item\": {\n    \"id\": \"prod001\",\n    \"name\": \"Wireless Headphones\",\n    \"quantity\": 2,\n    \"price\": 99.99\n  }\n}"
+            },
+            {
+              "id": "8ee53291-4534-4c47-a73d-e10738ed18d2",
+              "name": "Bad Request",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productId\": \"prod001\",\n  \"quantity\": 2\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/cart",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cart"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Bad Request\",\n  \"message\": \"Invalid product ID or quantity. Quantity must be greater than 0\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Cart Item",
+          "id": "d8812232-243d-480f-811e-af5d2342f7bf",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 3\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/cart/items/prod001",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                "items",
+                "prod001"
+              ]
+            }
+          },
+          "response": [
+            {
+              "id": "363234ce-7a47-423a-8e0c-20f0d9845083",
+              "name": "Item Updated Successfully",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"quantity\": 3\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/cart/items/prod001",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cart",
+                    "items",
+                    "prod001"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"message\": \"Item quantity updated\",\n  \"item\": {\n    \"id\": \"prod001\",\n    \"name\": \"Wireless Headphones\",\n    \"quantity\": 3,\n    \"price\": 99.99\n  }\n}"
+            },
+            {
+              "id": "55c0402b-970e-4eee-a69e-f6ffc49681e3",
+              "name": "Not Found",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"quantity\": 3\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/cart/items/prod001",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cart",
+                    "items",
+                    "prod001"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Not Found\",\n  \"message\": \"The specified item was not found in the cart\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Remove Cart Item",
+          "id": "4d5b44c1-d098-4a41-8ac5-02d5c5da7728",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cart/items/prod001",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                "items",
+                "prod001"
+              ]
+            }
+          },
+          "response": [
+            {
+              "id": "6d5c19b7-08a0-456a-a542-e6b824076317",
+              "name": "Item Removed Successfully",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cart/items/prod001",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cart",
+                    "items",
+                    "prod001"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"message\": \"Item removed from cart\",\n  \"removedItem\": {\n    \"id\": \"prod001\",\n    \"name\": \"Wireless Headphones\",\n    \"quantity\": 2,\n    \"price\": 99.99\n  }\n}"
+            },
+            {
+              "id": "e9e53475-3e64-4a1b-914b-b8233f47585c",
+              "name": "Not Found",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/cart/items/prod001",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cart",
+                    "items",
+                    "prod001"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Not Found\",\n  \"message\": \"The specified item was not found in the cart\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Submit Order",
+          "id": "cdce3620-41c7-4d87-9419-069a001a8bec",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"shippingAddress\": {\n    \"street\": \"123 Main St\",\n    \"city\": \"Anytown\",\n    \"state\": \"CA\",\n    \"zipCode\": \"12345\"\n  },\n  \"paymentMethod\": \"Credit Card\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/cart/submit",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                "submit"
+              ]
+            }
+          },
+          "response": [
+            {
+              "id": "0377e949-9102-4f78-9020-eaf6135890bb",
+              "name": "Order Submitted Successfully",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"shippingAddress\": {\n    \"street\": \"123 Main St\",\n    \"city\": \"Anytown\",\n    \"state\": \"CA\",\n    \"zipCode\": \"12345\"\n  },\n  \"paymentMethod\": \"Credit Card\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/cart/submit",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cart",
+                    "submit"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"orderId\": \"ord123456\",\n  \"status\": \"Processing\",\n  \"items\": [\n    {\n      \"id\": \"prod001\",\n      \"name\": \"Wireless Headphones\",\n      \"quantity\": 2,\n      \"price\": 99.99\n    },\n    {\n      \"id\": \"prod002\",\n      \"name\": \"Smartphone Case\",\n      \"quantity\": 1,\n      \"price\": 19.99\n    }\n  ],\n  \"total\": 219.97,\n  \"shippingAddress\": {\n    \"street\": \"123 Main St\",\n    \"city\": \"Anytown\",\n    \"state\": \"CA\",\n    \"zipCode\": \"12345\"\n  }\n}"
+            },
+            {
+              "id": "0cdb58f0-22dc-4420-82e6-81a90e621dba",
+              "name": "Empty Cart",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"shippingAddress\": {\n    \"street\": \"123 Main St\",\n    \"city\": \"Anytown\",\n    \"state\": \"CA\",\n    \"zipCode\": \"12345\"\n  },\n  \"paymentMethod\": \"Credit Card\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/cart/submit",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "cart",
+                    "submit"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Not Found\",\n  \"message\": \"Cannot submit order. Shopping cart is empty\"\n}"
+            }
+          ]
+        }
+      ],
+      "id": "5efdc9c5-ddb2-4002-9960-ffa0a12b30f7"
+    }
+  ],
+  "variable": [
+    {
+      "id": "8ae81bab-9b80-4612-9b2c-0b864ddf506d",
+      "key": "base_url",
+      "value": "https://api.example.com",
+      "type": "string"
+    },
+    {
+      "id": "f43c3354-e3db-49b0-9563-3c5c5bb269a2",
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
