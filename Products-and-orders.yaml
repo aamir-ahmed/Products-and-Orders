@@ -164,6 +164,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+    get:
+      summary: Returns Product name
+      responses:
+        '200':
+          description: A short description of the response
+          content:
+            application/json:
+              schema:
+                type: string
   /api/orders:
     get:
       summary: Returns a list of orders from the database
